@@ -471,11 +471,6 @@ def run_smoke(args: argparse.Namespace) -> int:
             env["CROSSINK_SIMULATOR_SMOKE_STATUS_BAR_CAPTURES"] = str(Path(args.receive_folder_captures).resolve())
         env["CROSSINK_SIMULATOR_SMOKE_BOOK"] = simulator_book_path
         env["CROSSINK_SIMULATOR_SMOKE_PAGE_TURNS"] = str(args.page_turns)
-        if args.context_menu_sync_return:
-            env["CROSSINK_SIMULATOR_SMOKE_CONTEXT_MENU_SYNC_RETURN"] = args.context_menu_sync_return
-            env["CROSSINK_SIMULATOR_SMOKE_FILE_BROWSER_SYNC_RETURN"] = "1"
-        if args.file_browser_sync_return:
-            env["CROSSINK_SIMULATOR_SMOKE_FILE_BROWSER_SYNC_RETURN"] = "1"
         if args.reader_top_drawer:
             env["CROSSINK_SIMULATOR_SMOKE_READER_TOP_DRAWER"] = "1"
         if args.frontlight_sync:
@@ -500,9 +495,6 @@ def run_smoke(args: argparse.Namespace) -> int:
             env["CROSSINK_SIMULATOR_SMOKE_RELEASE_NOTES"] = "1"
         if args.about_captures:
             env["CROSSINK_SIMULATOR_SMOKE_STATUS_BAR_CAPTURES"] = str(Path(args.about_captures).resolve())
-        if args.sync_server_captures:
-            env["CROSSINK_SIMULATOR_SMOKE_STATUS_BAR_CAPTURES"] = str(Path(args.sync_server_captures).resolve())
-            env["CROSSINK_SIMULATOR_SMOKE_SYNC_SERVER_CAPTURES"] = "1"
         if args.settings_back:
             env["CROSSINK_SIMULATOR_SMOKE_SETTINGS_BACK"] = "1"
         if args.interval_layout:
@@ -692,8 +684,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=int, help="Seconds before the simulator run is treated as hung (default: 120; 180 for about, support export or filename fonts; 300 for frontlight layout or asset downloads)")
     parser.add_argument("--page-turns", type=int, default=2, help="Number of EPUB page-forward taps to run")
     parser.add_argument("--theme", choices=sorted(THEMES), help="UI theme to use during the smoke test")
-    parser.add_argument("--context-menu-sync-return", choices=["file-browser", "library"], help="Check context-menu sync return across network reboots")
-    parser.add_argument("--file-browser-sync-return", action="store_true", help="Check browser sync return across network reboots")
     parser.add_argument("--reader-top-drawer", action="store_true", help="Check capability-based reader top drawer, details/light controls, dismissal, bottom menu and Home action")
     parser.add_argument("--frontlight-sync", action="store_true", help="Check frontlight sync outside the reader with stats enabled and disabled (X4 Pro)")
     parser.add_argument("--frontlight-layout", action="store_true", help="Check frontlight drawer bounds, handle swipes/taps, reader return and explicit Home across scales, orientations and themes (X4 Pro)")
@@ -705,7 +695,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--about", action="store_true", help="Check About navigation, paging and read-only snapshots across scales/orientations")
     parser.add_argument("--release-notes", action="store_true", help="Check the one-time What's New screen (Download, Update, touch Later vs swipe, landscape hints) and the Settings Release Notes entry; captures via --about-captures")
     parser.add_argument("--about-captures", help="Directory for About framebuffer captures (PGM)")
-    parser.add_argument("--sync-server-captures", help="Directory for Sync Server settings captures (PGM)")
     parser.add_argument("--settings-back", action="store_true", help="Check consistent back headers, tap targets and navigation across screens, themes, orientations and sizes (touch profiles)")
     parser.add_argument("--interval-layout", action="store_true", help="Check interval picker spacing and touch targets in all rotations and UI scales; captures via --about-captures")
     parser.add_argument("--menu-orientation", action="store_true", help="Check physical menu labels/actions in all rotations independently of reader preferences; captures via --about-captures")

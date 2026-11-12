@@ -105,6 +105,8 @@ inline constexpr std::array<CrossPointSettings::SHORT_PWRBTN, 36> shortcutAction
 inline bool supportsTiltPageTurn() { return halTiltSensor.isAvailable(); }
 
 inline bool isActionAvailable(const uint8_t action) {
+  // Server sync was removed from this fork. The ID stays valid for saved settings but is never offered.
+  if (action == CrossPointSettings::SYNC_PROGRESS) return false;
   if (action == CrossPointSettings::READING_STATS && !SETTINGS.shouldTrackReadingStats()) return false;
   if (action == CrossPointSettings::PREVIOUS_PAGE || action == CrossPointSettings::NEARBY_POSITION_SYNC ||
       action == CrossPointSettings::LIBRARY || action == CrossPointSettings::SELECT_CHAPTER ||

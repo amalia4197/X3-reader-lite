@@ -1806,6 +1806,7 @@ void LibraryActivity::showBookActionMenu(const size_t bookIndex, const bool igno
                  case FileBrowserAction::UnpinFavorite:
                  case FileBrowserAction::PinBootFavorite:
                  case FileBrowserAction::UnpinBootFavorite:
+                 case FileBrowserAction::SyncProgress:
                  case FileBrowserAction::UploadFolderProgress:
                  case FileBrowserAction::SetSleepFolder:
                  case FileBrowserAction::ClearSleepFolder:
