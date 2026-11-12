@@ -611,6 +611,7 @@ void FileBrowserActivity::showDirectoryActionMenu(const std::string& entry, bool
                                clearPreferredSleepFolder();
                                return;
                              case FileBrowserAction::SyncProgress:
+                             case FileBrowserAction::UploadFolderProgress:
                              case FileBrowserAction::DeleteCache:
                              case FileBrowserAction::ToggleBookStatsTracking:
                              case FileBrowserAction::ReadingStats:
@@ -916,6 +917,7 @@ void FileBrowserActivity::showFileActionMenu(const std::string& entry, bool igno
           case FileBrowserAction::UnpinBootFavorite:
             unpinBootFavorite();
             return;
+          case FileBrowserAction::SyncProgress:
           case FileBrowserAction::UploadFolderProgress:
           case FileBrowserAction::SetSleepFolder:
           case FileBrowserAction::ClearSleepFolder:

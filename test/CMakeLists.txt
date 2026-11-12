@@ -234,7 +234,7 @@ add_test(NAME UpstreamPortRegressions
 add_test(NAME SharedBuiltinFontTables
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/test/scripts/test_shared_builtin_font_tables.py)
 add_subdirectory(gif_support)
-add_subdirectory(clipping_sync)
+# clipping_sync/ holds only shared stubs now; its upload tests were removed with server sync.
 add_subdirectory(progress_slots)
 add_test(NAME PiccoDisplayIdleRegression
   COMMAND ${Python3_EXECUTABLE} ${REPO_ROOT}/test/scripts/test_picco_display_idle.py)
