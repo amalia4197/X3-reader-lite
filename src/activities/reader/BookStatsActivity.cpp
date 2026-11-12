@@ -6,11 +6,9 @@
 #include "EpubReaderMenuModel.h"
 #include "FilenameFontSystem.h"
 #include "MappedInputManager.h"
-#include "activities/network/StatsUploadActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "components/TouchHeaderBackButton.h"
 #include "components/UITheme.h"
-#include "network/ReadingSyncUpload.h"
 #include "sync/BookSyncFile.h"
 #include "sync/SyncPending.h"
 #include "util/InputReleaseGuard.h"
@@ -376,39 +374,10 @@ bool BookStatsActivity::selectEditFieldFromTouchTarget(const int touchTarget) {
   return true;
 }
 
-bool BookStatsActivity::canSyncReadingStats() const { return ReadingSyncUpload::canSyncReadingStats(); }
+// Server sync was removed from this fork, so the stats page never offers an upload.
+bool BookStatsActivity::canSyncReadingStats() const { return false; }
 
-void BookStatsActivity::startSyncReadingStats() {
-  // Ask here so Cancel returns to these stats instead of an already-closed reader.
-  auto confirm = makeUniqueNoThrow<ConfirmationActivity>(renderer, mappedInput, tr(STR_SYNC_READING_STATS),
-                                                         tr(STR_SYNC_READING_STATS_CONFIRM), true);
-  if (!confirm) {
-    LOG_ERR("BookStats", "Cannot allocate Sync Reading Stats confirmation");
-    return;
-  }
-  startActivityForResult(std::move(confirm), [this](const ActivityResult& result) {
-    if (result.isCancelled) {
-      requestUpdate();
-      return;
-    }
-    auto sync = makeUniqueNoThrow<StatsUploadActivity>(renderer, mappedInput, std::string{},
-                                                       StatsUploadActivity::Scope::ReadingStats, true);
-    if (!sync) {
-      LOG_ERR("BookStats", "Cannot allocate Sync Reading Stats activity");
-      requestUpdate();
-      return;
-    }
-    // Only a reader underneath is a screen to come back to; Home is the default anyway.
-    if (activityManager.isReaderActivity())
-      sync->setReturnToBook(activityManager.getCurrentBookPath(),
-                            static_cast<uint8_t>(EpubReaderMenuAction::READING_STATS));
-    saveStats();
-    // Close normally first: the parent (often the reader) imports these stats
-    // edits in its result handler before the sync replaces the stack.
-    activityManager.replaceAfterReturn(std::move(sync));
-    finish();
-  });
-}
+void BookStatsActivity::startSyncReadingStats() {}
 
 void BookStatsActivity::loop() {
   if (InputReleaseGuard::consumeInitialRelease(mappedInput, MappedInputManager::Button::Back,

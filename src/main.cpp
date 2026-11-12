@@ -107,14 +107,11 @@ inline esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_
 #include "activities/ActivityManager.h"
 #include "activities/boot_sleep/ImageFolderIndex.h"
 #include "activities/home/BookActions.h"
-#include "activities/reader/KOReaderSyncActivity.h"
 #include "activities/reader/ReaderUtils.h"
 #include "activities/reader/ReadingStatsUtils.h"
 #include "activities/reader/StatsBackup.h"
 #include "activities/settings/AssetDownloadActivity.h"
 #include "activities/settings/FontDownloadActivity.h"
-#include "activities/settings/KOReaderAuthActivity.h"
-#include "activities/settings/KOReaderSettingsActivity.h"
 #include "activities/settings/OtaUpdateActivity.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
 #include "components/UITheme.h"
@@ -515,52 +512,15 @@ bool silentRestartToNetwork(const NetworkBootTarget target, const uint32_t paylo
 
 bool silentRestartToManageFonts() { return silentRestartToNetwork(NetworkBootTarget::MANAGE_FONTS); }
 
-static uint32_t encodeKOReaderSyncOrientation(const uint8_t orientation) {
-  return orientation < CrossPointSettings::ORIENTATION_COUNT ? static_cast<uint32_t>(orientation) + 1 : 0;
-}
-
-static uint8_t decodeKOReaderSyncOrientation(const uint32_t payload) {
-  return payload > 0 && payload <= CrossPointSettings::ORIENTATION_COUNT ? static_cast<uint8_t>(payload - 1)
-                                                                         : CrossPointSettings::ORIENTATION_COUNT;
-}
-
 bool isGlobalPowerButtonAction(const CrossPointSettings::SHORT_PWRBTN action) {
   return isPowerButtonActionAvailableOutsideReader(action);
 }
 
-bool startGlobalSyncProgress(const bool networkBootReady, const uint8_t readerOrientation) {
-  if (activityManager.hasActivityNamed(KOReaderSyncActivity::NAME)) {
-    LOG_DBG("MAIN", "Ignoring KOReader sync shortcut while sync is already active");
-    return true;
-  }
-
-  if (!KOREADER_STORE.hasCredentials()) {
-    if (networkBootReady) return false;
-    activityManager.pushActivity(std::make_unique<KOReaderSettingsActivity>(renderer, mappedInputManager));
-    return true;
-  }
-
-  std::string epubPath = APP_STATE.openEpubPath;
-  if (epubPath.empty() || !FsHelpers::hasEpubExtension(epubPath) || !Storage.exists(epubPath.c_str())) {
-    if (networkBootReady) return false;
-    LOG_DBG("MAIN", "No syncable EPUB open, opening KOReader settings instead");
-    activityManager.pushActivity(std::make_unique<KOReaderSettingsActivity>(renderer, mappedInputManager));
-    return true;
-  }
-
-  if (!networkBootReady) {
-    return silentRestartToNetwork(NetworkBootTarget::KOREADER_SYNC, encodeKOReaderSyncOrientation(readerOrientation));
-  }
-
-  const DocumentMatchMethod matchMethod = KOREADER_STORE.getMatchMethod();
-  auto syncActivity = makeUniqueNoThrow<KOReaderSyncActivity>(renderer, mappedInputManager, std::move(epubPath),
-                                                              matchMethod, readerOrientation);
-  if (!syncActivity) {
-    LOG_ERR("MAIN", "OOM: KOReader sync activity (free=%u maxAlloc=%u)", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
-    return false;
-  }
-  activityManager.replaceActivity(std::move(syncActivity));
-  return true;
+// Server sync was removed from this fork; the shortcut action is kept so saved
+// settings stay valid, but it does nothing.
+bool startGlobalSyncProgress(const bool, const uint8_t) {
+  LOG_DBG("MAIN", "Sync shortcut ignored: server sync is not available");
+  return false;
 }
 
 CrossPointSettings::SHORT_PWRBTN getPowerButtonAction() {
@@ -1784,21 +1744,9 @@ void setup() {
         launched = activityManager.goToPlugins(true);
         break;
       case NetworkBootTarget::KOREADER_SYNC:
-        launched = startGlobalSyncProgress(true, decodeKOReaderSyncOrientation(snapshotPayload));
+      case NetworkBootTarget::KOREADER_AUTH:
+        LOG_ERR("MAIN", "Ignoring removed network boot target %lu", static_cast<unsigned long>(snapshotTarget));
         break;
-      case NetworkBootTarget::KOREADER_AUTH: {
-        const auto mode =
-            snapshotPayload == 1 ? KOReaderAuthActivity::Mode::SIGN_UP : KOReaderAuthActivity::Mode::AUTHENTICATE;
-        auto authActivity = makeUniqueNoThrow<KOReaderAuthActivity>(renderer, mappedInputManager, mode);
-        if (authActivity) {
-          activityManager.replaceActivity(std::move(authActivity));
-          launched = true;
-        } else {
-          LOG_ERR("MAIN", "OOM: KOReader auth activity after minimal boot (free=%u maxAlloc=%u)", ESP.getFreeHeap(),
-                  ESP.getMaxAllocHeap());
-        }
-        break;
-      }
       case NetworkBootTarget::FILE_TRANSFER:
         launched = activityManager.resumeFileTransferFromNetworkBoot(snapshotPayload);
         break;

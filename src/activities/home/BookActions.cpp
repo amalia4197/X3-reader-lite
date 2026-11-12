@@ -24,7 +24,6 @@
 #include "RecentBookProgress.h"
 #include "RecentBooksStore.h"
 #include "activities/RenderLock.h"
-#include "activities/network/StatsUploadActivity.h"
 #include "activities/reader/BookReadingStats.h"
 #include "activities/reader/BookStatsActivity.h"
 #include "activities/reader/BookStatsTracking.h"
@@ -64,10 +63,6 @@ std::vector<FileBrowserActionActivity::MenuItem> buildBookActionItems(const std:
   if (hasClearableBookCache(fullPath)) {
     items.push_back({FileBrowserAction::DeleteCache, StrId::STR_DELETE_CACHE});
   }
-  // XTC books have no KOReader position, but their reading stats still sync.
-  if (FsHelpers::hasEpubExtension(fullPath) || FsHelpers::hasXtcExtension(fullPath)) {
-    items.push_back({FileBrowserAction::SyncProgress, StrId::STR_SYNC_BOOK});
-  }
   if (FsHelpers::hasEpubExtension(fullPath)) {
     items.push_back({FileBrowserAction::EpubRenderMode, StrId::STR_EPUB_RENDER_MODE});
     items.push_back({FileBrowserAction::ResetReaderSettings, StrId::STR_RESET_BOOK_READER_SETTINGS});
@@ -89,64 +84,6 @@ std::vector<FileBrowserActionActivity::MenuItem> buildBookActionItems(const std:
     items.push_back({FileBrowserAction::RemoveFromRecents, StrId::STR_REMOVE_FROM_RECENTS_ACTION});
   }
   return items;
-}
-
-void syncProgress(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& fullPath,
-                  PendingOverlayResume returnResume) {
-  if (FsHelpers::hasXtcExtension(fullPath) && Storage.exists(fullPath.c_str())) {
-    if (!KOREADER_STORE.hasCredentials()) {
-      startGlobalSyncProgress();  // Opens account settings, same as for EPUB.
-      return;
-    }
-    // No position to map and no reader to resume: send this book's stats in place.
-    auto sync =
-        makeUniqueNoThrow<StatsUploadActivity>(renderer, mappedInput, fullPath, StatsUploadActivity::Scope::Book);
-    if (!sync) {
-      LOG_ERR("BookActions", "Cannot allocate XTC sync: %s", fullPath.c_str());
-      drawToast(renderer, tr(STR_SYNC_FAILED_MSG));
-      return;
-    }
-    sync->setReturnTo(std::move(returnResume));
-    activityManager.replaceActivity(std::move(sync));
-    return;
-  }
-  if (!FsHelpers::hasEpubExtension(fullPath) || !Storage.exists(fullPath.c_str())) {
-    LOG_ERR("BookActions", "Cannot sync missing or unsupported book: %s", fullPath.c_str());
-    drawToast(renderer, tr(STR_SYNC_FAILED_MSG));
-    return;
-  }
-  if (!KOREADER_STORE.hasCredentials()) {
-    startGlobalSyncProgress();  // Opens account settings without changing the current book.
-    return;
-  }
-
-  drawToast(renderer, tr(STR_LOADING));
-  {
-    // A never-opened book needs its spine/TOC cache for progress mapping.
-    // Keep parsing off the network boot and release this fallible allocation
-    // before TLS; no CSS, page layout, or resident location tables are needed.
-    auto epub = makeUniqueNoThrow<Epub>(fullPath, "/.crosspoint");
-    if (!epub || !epub->load(true, true, Epub::XLocationLoadMode::Skip, true)) {
-      LOG_ERR("BookActions", "Could not prepare sync metadata: %s", fullPath.c_str());
-      drawToast(renderer, tr(STR_SYNC_FAILED_MSG));
-      return;
-    }
-  }
-
-  // The existing network reboot resumes from this saved path. Persist the
-  // selected book before rebooting so a menu action never syncs the previous book.
-  std::string previousPath = APP_STATE.openEpubPath;
-  auto previousOverlay = std::move(APP_STATE.pendingOverlayResume);
-  APP_STATE.openEpubPath = fullPath;
-  APP_STATE.pendingOverlayResume = std::move(returnResume);
-  if (!APP_STATE.saveToFile()) {
-    APP_STATE.openEpubPath = std::move(previousPath);
-    APP_STATE.pendingOverlayResume = std::move(previousOverlay);
-    LOG_ERR("BookActions", "Could not save sync target: %s", fullPath.c_str());
-    drawToast(renderer, tr(STR_SAVE_PROGRESS_FAILED));
-    return;
-  }
-  startGlobalSyncProgress();
 }
 
 bool hasClearableBookCache(const std::string& path) {
