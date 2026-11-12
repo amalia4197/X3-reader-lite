@@ -1713,18 +1713,6 @@ void LibraryActivity::showBookActionMenu(const size_t bookIndex, const bool igno
                    reloadAfterBookAction();
                    return;
                  }
-                 case FileBrowserAction::SyncProgress: {
-                   PendingOverlayResume resume;
-                   resume.origin = PendingOverlayOrigin::Library;
-                   resume.tab = static_cast<uint8_t>(sort);
-                   resume.pane = descending;
-                   resume.selectedIndex = selection;
-                   resume.scrollPosition = topIndex;
-                   resume.libraryQuery = query;
-                   BookActions::syncProgress(renderer, mappedInput, book.path, std::move(resume));
-                   requestUpdate();
-                   return;
-                 }
                  case FileBrowserAction::ReadingStats:
                    openDialog(BookActions::createReadingStatsActivity(renderer, mappedInput, book.path, book.title),
                               [this](const ActivityResult&) { requestUpdate(); });

@@ -39,7 +39,6 @@
 #include "activities/Activity.h"
 #include "activities/reader/TouchReaderPreviewModel.h"
 #include "components/OptionPopup.h"
-#include "sync/KeptPosition.h"
 #include "sync/SyncPending.h"
 #if CROSSINK_APP_CAP_TOUCH
 #include "activities/reader/ReaderPinchGesture.h"
@@ -205,12 +204,6 @@ class EpubReaderActivity final : public Activity {
   QueuedTurnRenderingState queuedTurnRendering;
   bool hyphenationPackChecked = false;
   bool checkHyphenationPack();
-  // A position another reader left for this book (sync_parked.bin), offered
-  // once the first page is on screen. Allocated only when one is found.
-  std::unique_ptr<KeptPosition::Offer> keptOffer;
-  bool keptOfferShown = false;
-  bool offerKeptPosition();
-  void applyKeptPosition(const KeptPosition::Offer& offer);
   unsigned long pageShownAtMs = 0UL;
   unsigned long lastRenderCompleteMs = 0UL;
 #if CROSSINK_SCALABLE_FONTS

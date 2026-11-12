@@ -13,7 +13,6 @@
 #include "components/icons/readingStatsIcons.h"
 #include "components/icons/syncIcons.h"
 #include "fontIds.h"
-#include "network/ReadingSyncUpload.h"
 
 namespace fui = freeink::ui;
 
@@ -41,12 +40,6 @@ constexpr MenuEntry MENU_ENTRIES[] = {
 #if CROSSINK_APP_CAP_USB_DRIVE
     {NetworkMode::USB_DRIVE, StrId::STR_USB_DRIVE, StrId::STR_USB_DRIVE_DESC, UIIcon::Transfer, MenuSection::None},
 #endif
-    {NetworkMode::SYNC_BOOKS, StrId::STR_SYNC_BOOKS, StrId::STR_SYNC_BOOKS_DESC, UIIcon::Transfer,
-     MenuSection::SyncServer},
-    {NetworkMode::SYNC_READING_STATS, StrId::STR_SYNC_READING_STATS, StrId::STR_SYNC_READING_STATS_DESC, UIIcon::Chart,
-     MenuSection::SyncServer},
-    {NetworkMode::SYNC_CLIPPINGS, StrId::STR_SYNC_CLIPPINGS, StrId::STR_SYNC_CLIPPINGS_DESC, UIIcon::BookmarkIcon,
-     MenuSection::SyncServer},
     {NetworkMode::NEARBY_BOOK_RECEIVE, StrId::STR_RECEIVE_NEARBY_BOOK, StrId::STR_RECEIVE_NEARBY_BOOK_DESC,
      UIIcon::Transfer, MenuSection::Nearby},
     {NetworkMode::NEARBY_STATS_SYNC, StrId::STR_NEARBY_STATS_SYNC, StrId::STR_NEARBY_STATS_SYNC_DESC, UIIcon::Transfer,
@@ -59,10 +52,6 @@ bool entryVisible(const NetworkMode mode) {
   switch (mode) {
     case NetworkMode::NEARBY_STATS_SYNC:
       return SETTINGS.shouldTrackReadingStats();
-    case NetworkMode::SYNC_READING_STATS:
-      return ReadingSyncUpload::canSyncReadingStats();
-    case NetworkMode::SYNC_CLIPPINGS:
-      return ReadingSyncUpload::canSyncClippings();
     default:
       return true;
   }
@@ -241,12 +230,8 @@ void NetworkModeSelectionActivity::buildListScreen(UiApp::ScreenType& screen) {
       item.icon = fui::bitmapFromIcon(icon_usb_32);
     } else if (entry.mode == NetworkMode::NEARBY_BOOK_RECEIVE) {
       item.icon = fui::bitmapFromIcon(icon_chevrons_left_right_ellipsis_32);
-    } else if (entry.mode == NetworkMode::NEARBY_STATS_SYNC || entry.mode == NetworkMode::SYNC_READING_STATS) {
+    } else if (entry.mode == NetworkMode::NEARBY_STATS_SYNC) {
       item.icon = fui::bitmapFromIcon(icon_reading_stats_32);
-    } else if (entry.mode == NetworkMode::SYNC_BOOKS) {
-      item.icon = fui::bitmapFromIcon(icon_cloud_upload_32);
-    } else if (entry.mode == NetworkMode::SYNC_CLIPPINGS) {
-      item.icon = fui::bitmapFromIcon(icon_blockquote_32);
     } else {
       item.icon = listIconFor(entry.icon, 32);  // subtitle rows carry the larger icon
     }

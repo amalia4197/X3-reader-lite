@@ -347,78 +347,13 @@ void forEachBaseSetting(SettingVisitor visitor, void* context) {
   add(SettingInfo::Value(StrId::STR_WARMTH, &CrossPointSettings::frontlightWarmth, {0, 100, 5}, "frontlightWarmth"));
   add(SettingInfo::Toggle(StrId::STR_FRONTLIGHT, &CrossPointSettings::frontlightOn, "frontlightOn"));
 
-  // --- KOReader Sync (web-only, uses KOReaderCredentialStore) ---
-  add(SettingInfo::DynamicEnum(
-      StrId::STR_SERVER_TYPE, {StrId::STR_CROSSPOINT, StrId::STR_KOSYNC_SERVER, StrId::STR_OTHER},
-      [] { return static_cast<uint8_t>(KOREADER_STORE.getServerType()); },
-      [](uint8_t value) {
-        KOREADER_STORE.setServerType(static_cast<KOReaderServerType>(value));
-        KOREADER_STORE.saveToFile();
-      },
-      "koServerType", StrId::STR_SYNC_SERVER));
-  add(SettingInfo::DynamicString(
-      StrId::STR_CUSTOM_HEADER_1, [] { return formatHttpHeaderLine(KOREADER_STORE.getCustomHeaders()[0], true); },
-      [](const std::string& value) {
-        if (value == formatHttpHeaderLine(KOREADER_STORE.getCustomHeaders()[0], true)) return;
-        HttpHeader header;
-        if (parseHttpHeaderLine(value, header) && KOREADER_STORE.setCustomHeader(0, header.name, header.value))
-          KOREADER_STORE.saveToFile();
-      },
-      "koCustomHeader1", StrId::STR_SYNC_SERVER));
-  add(SettingInfo::DynamicString(
-      StrId::STR_CUSTOM_HEADER_2, [] { return formatHttpHeaderLine(KOREADER_STORE.getCustomHeaders()[1], true); },
-      [](const std::string& value) {
-        if (value == formatHttpHeaderLine(KOREADER_STORE.getCustomHeaders()[1], true)) return;
-        HttpHeader header;
-        if (parseHttpHeaderLine(value, header) && KOREADER_STORE.setCustomHeader(1, header.name, header.value))
-          KOREADER_STORE.saveToFile();
-      },
-      "koCustomHeader2", StrId::STR_SYNC_SERVER));
-  add(SettingInfo::DynamicString(
-      StrId::STR_KOREADER_USERNAME, [] { return KOREADER_STORE.getUsername(); },
-      [](const std::string& v) {
-        KOREADER_STORE.setCredentials(v, KOREADER_STORE.getPassword());
-        KOREADER_STORE.saveToFile();
-      },
-      "koUsername", StrId::STR_SYNC_SERVER));
-  add(SettingInfo::DynamicString(
-      StrId::STR_KOREADER_PASSWORD, [] { return KOREADER_STORE.getPassword(); },
-      [](const std::string& v) {
-        KOREADER_STORE.setCredentials(KOREADER_STORE.getUsername(), v);
-        KOREADER_STORE.saveToFile();
-      },
-      "koPassword", StrId::STR_SYNC_SERVER));
-  add(SettingInfo::DynamicString(
-      StrId::STR_SYNC_SERVER_URL, [] { return KOREADER_STORE.getServerUrl(); },
-      [](const std::string& v) {
-        KOREADER_STORE.setServerUrl(v);
-        KOREADER_STORE.saveToFile();
-      },
-      "koServerUrl", StrId::STR_SYNC_SERVER));
+  // Document matching is shared with Nearby position sync; the server settings were removed.
   add(SettingInfo::DynamicEnum(
       StrId::STR_DOCUMENT_MATCHING, {StrId::STR_FILENAME, StrId::STR_BINARY},
       [] { return static_cast<uint8_t>(KOREADER_STORE.getMatchMethod()); },
       // The web settings page warns before saving a change.
       [](uint8_t v) { DocumentMatching::set(static_cast<DocumentMatchMethod>(v)); }, "koMatchMethod",
       StrId::STR_SYNC_SERVER));
-  add(SettingInfo::DynamicEnum(
-      StrId::STR_SEND_METADATA, {StrId::STR_OFF, StrId::STR_ON},
-      [] { return static_cast<uint8_t>(KOREADER_STORE.getSendMetadata()); },
-      [](uint8_t v) {
-        KOREADER_STORE.setSendMetadata(v != 0);
-        KOREADER_STORE.saveToFile();
-      },
-      "koSendMetadata", StrId::STR_SYNC_SERVER));
-
-  add(SettingInfo::DynamicEnum(
-      StrId::STR_SYNC_BEHAVIOR, {StrId::STR_ASK_EVERY_TIME, StrId::STR_SMART_SYNC},
-      [] { return static_cast<uint8_t>(KOREADER_STORE.getSyncBehavior()); },
-      [](uint8_t v) {
-        KOREADER_STORE.setSyncBehavior(static_cast<KOReaderSyncBehavior>(v));
-        KOREADER_STORE.saveToFile();
-      },
-      "koSyncBehavior", StrId::STR_SYNC_SERVER));
-
   // Legacy fields stay in JSON for one-time status bar migration; the web
   // editor uses /api/status-bars instead of exposing these controls.
   add(SettingInfo::Toggle(StrId::STR_CHAPTER_PAGE_COUNT, &CrossPointSettings::statusBarChapterPageCount,
