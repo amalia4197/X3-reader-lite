@@ -1,4 +1,3 @@
-#include <OpdsParser.h>
 #include <gtest/gtest.h>
 
 #include "DownloadFileSwap.h"
@@ -6,7 +5,6 @@
 #include "HttpDownloadResume.h"
 #include "HttpDownloader.h"
 #include "TestPlatform.h"
-#include "util/OpdsFeedError.h"
 
 class HttpDownloaderTest : public testing::TestWithParam<HttpDownloader::Transport> {
   void SetUp() override {
@@ -758,9 +756,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsFollowFinalResponseAndAuthorization) {
       EXPECT_EQ(diagnostic.authorizationWithheld, withheld);
       ASSERT_EQ(requests.size(), 2u);
       EXPECT_EQ(requests[1].count("Authorization") > 0, credentials && !withheld);
-      EXPECT_EQ(classifyFeedFailure(diagnostic,
-                                    result == HttpDownloader::HTTP_ERROR || result == HttpDownloader::UNAUTHORIZED),
-                withheld ? OpdsFeedError::Redirected : OpdsFeedError::Unauthorized);
     }
   }
 }
@@ -775,12 +770,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsResetAcrossRequestsAndKeep200FailuresG
     auto result = HttpDownloader::streamUrl(
         "https://example.com/feed", [](const uint8_t*, size_t) { return true; }, nullptr, "", "", options, &diagnostic);
     EXPECT_EQ(result, status == 401 || status == 403 ? HttpDownloader::UNAUTHORIZED : HttpDownloader::HTTP_ERROR);
-    EXPECT_EQ(
-        classifyFeedFailure(diagnostic, result == HttpDownloader::HTTP_ERROR || result == HttpDownloader::UNAUTHORIZED),
-        status == 401                   ? OpdsFeedError::Unauthorized
-        : status >= 500 && status < 600 ? OpdsFeedError::ServerError
-        : status < 0                    ? OpdsFeedError::Unreachable
-                                        : OpdsFeedError::Other);
     EXPECT_FALSE(diagnostic.authorizationWithheld);
   }
   replies = {{200, "abc", 3}};
@@ -790,7 +779,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsResetAcrossRequestsAndKeep200FailuresG
                 &diagnostic),
             HttpDownloader::FILE_ERROR);
   EXPECT_TRUE(diagnostic.callbackRejected);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, true), OpdsFeedError::Other);
 
   options.shouldCancel = [] { return true; };
   EXPECT_EQ(HttpDownloader::streamUrl(
@@ -800,7 +788,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsResetAcrossRequestsAndKeep200FailuresG
   EXPECT_FALSE(diagnostic.attempted);
   EXPECT_FALSE(diagnostic.callbackRejected);
   EXPECT_EQ(diagnostic.status, 0);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, false), OpdsFeedError::Other);
 }
 
 TEST_P(HttpDownloaderTest, FeedDiagnosticsDiscardRedirectStatusWhenNextConnectionFails) {
@@ -814,7 +801,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsDiscardRedirectStatusWhenNextConnectio
             HttpDownloader::HTTP_ERROR);
   EXPECT_LE(diagnostic.status, 0);
   EXPECT_TRUE(diagnostic.authorizationWithheld);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, true), OpdsFeedError::Unreachable);
 }
 
 TEST_P(HttpDownloaderTest, FeedDiagnosticsRespectSavedOriginAndHttpUpgrade) {
@@ -826,7 +812,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsRespectSavedOriginAndHttpUpgrade) {
                 "http://example.com/feed", [](const uint8_t*, size_t) { return true; }, nullptr, "user", "pass",
                 options, &diagnostic),
             HttpDownloader::UNAUTHORIZED);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, true), OpdsFeedError::Redirected);
   EXPECT_FALSE(requests.back().count("Authorization"));
   replies = {{401, "", 0}};
   nextReply = 0;
@@ -835,7 +820,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsRespectSavedOriginAndHttpUpgrade) {
                 "https://other.example/feed", [](const uint8_t*, size_t) { return true; }, nullptr, "user", "pass",
                 options, &diagnostic),
             HttpDownloader::UNAUTHORIZED);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, true), OpdsFeedError::Redirected);
 }
 
 TEST_P(HttpDownloaderTest, FeedDiagnosticsMissingCallbackAndSuccessAreGeneric) {
@@ -845,7 +829,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsMissingCallbackAndSuccessAreGeneric) {
   EXPECT_EQ(HttpDownloader::streamUrl("https://example.com/feed", nullptr, nullptr, "", "", options, &diagnostic),
             HttpDownloader::HTTP_ERROR);
   EXPECT_FALSE(diagnostic.attempted);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, true), OpdsFeedError::Other);
   replies = {{200, "abc", 3}};
   EXPECT_EQ(HttpDownloader::streamUrl(
                 "https://example.com/feed", [](const uint8_t*, size_t) { return true; }, nullptr, "", "", options,
@@ -853,7 +836,6 @@ TEST_P(HttpDownloaderTest, FeedDiagnosticsMissingCallbackAndSuccessAreGeneric) {
             HttpDownloader::OK);
   EXPECT_EQ(diagnostic.status, 200);
   EXPECT_FALSE(diagnostic.authorizationWithheld);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, false), OpdsFeedError::Other);
 }
 
 TEST_P(HttpDownloaderTest, FeedInFlightCancellationIsNotConnectivityFailure) {
@@ -867,9 +849,6 @@ TEST_P(HttpDownloaderTest, FeedInFlightCancellationIsNotConnectivityFailure) {
       "https://example.com/feed", [](const uint8_t*, size_t) { return true; }, nullptr, "", "", options, &diagnostic);
   EXPECT_EQ(result, HttpDownloader::ABORTED);
   EXPECT_TRUE(diagnostic.attempted);
-  EXPECT_EQ(
-      classifyFeedFailure(diagnostic, result == HttpDownloader::HTTP_ERROR || result == HttpDownloader::UNAUTHORIZED),
-      OpdsFeedError::Other);
 }
 
 TEST_P(HttpDownloaderTest, FeedNegativeGetRetainsHeadersAndDoesNotReportConnectivity) {
@@ -884,38 +863,12 @@ TEST_P(HttpDownloaderTest, FeedNegativeGetRetainsHeadersAndDoesNotReportConnecti
       "https://example.com/feed", [](const uint8_t*, size_t) { return true; }, nullptr, "", "", options, &diagnostic);
   EXPECT_EQ(result, HttpDownloader::HTTP_ERROR);
   EXPECT_EQ(diagnostic.status, 200);
-  EXPECT_EQ(classifyFeedFailure(diagnostic, true), OpdsFeedError::Other);
   nextReply = 0;
   result = HttpDownloader::streamUrl(
       "https://example.com/feed", [](const uint8_t*, size_t) { return false; }, nullptr, "", "", options, &diagnostic);
   EXPECT_TRUE(diagnostic.callbackRejected);
-  EXPECT_EQ(
-      classifyFeedFailure(diagnostic, result == HttpDownloader::HTTP_ERROR || result == HttpDownloader::UNAUTHORIZED),
-      OpdsFeedError::Other);
 }
 
-TEST_P(HttpDownloaderTest, MalformedAndUnfinishedFeedsAreNotConnectivityFailures) {
-  for (const std::string body : {"<feed></wrong>", "<feed>"}) {
-    OpdsEntry entry[1];
-    OpdsParser parser(entry);
-    replies = {{200, body, body.size()}};
-    nextReply = 0;
-    HttpRequestDiagnostics diagnostic;
-    HttpDownloader::DownloadOptions options;
-    options.transport = GetParam();
-    auto result = HttpDownloader::streamUrl(
-        "https://example.com/feed",
-        [&parser](const uint8_t* data, size_t size) { return parser.write(data, size) == size; }, nullptr, "", "",
-        options, &diagnostic);
-    parser.flush();  // Same finalization performed by OpdsParserStream.
-    EXPECT_FALSE(parser);
-    EXPECT_EQ(parser.getErrorReason(), OpdsParserError::XML_PARSE);
-    EXPECT_EQ(diagnostic.status, 200);
-    EXPECT_EQ(
-        classifyFeedFailure(diagnostic, result == HttpDownloader::HTTP_ERROR || result == HttpDownloader::UNAUTHORIZED),
-        OpdsFeedError::Other);
-  }
-}
 TEST_P(HttpDownloaderTest, PluginHeadersStayOnTheOriginalOrigin) {
   const std::vector<HttpDownloader::Header> headers{{"Authorization", "Bearer test-token"}, {"X-Api-Key", "secret"}};
   HttpDownloader::DownloadOptions options;

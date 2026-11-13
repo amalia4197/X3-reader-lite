@@ -9,7 +9,7 @@ look for upstream code that references a deleted file.
 Baseline (clean `pio run -e default`, merged `lite` dd4dfc88): flash 6,380,377 B (97.4%), RAM 74,668 B.
 Measure with a clean build (`rm -rf .pio/build/default`); incremental builds drifted by ~6.5 KB.
 
-## Tier 1: server sync (done, uncommitted)
+## Tier 1: server sync (done)
 
 After (clean build): flash 6,213,147 B (94.8%), RAM 74,500 B (-167,230 B flash).
 
@@ -47,8 +47,27 @@ Known leftovers:
 - `lib/KOReaderSync/KOReaderSyncClient.cpp` (network client) is still compiled but unreferenced, except `readerId()`.
 - `docs/` still describes the removed sync features.
 
+## Tier 2: OPDS and Calibre (done, uncommitted)
+
+After (clean build): flash 6,127,491 B (93.5%), RAM 74,300 B (-85,656 B vs Tier 1; -252,886 B vs baseline).
+
+Deleted:
+- `lib/OpdsParser`, `src/OpdsServerStore.*`, `src/util/Opds{DownloadFolder,FeedError}.h`
+- `src/activities/browser/` (OPDS book browser), `src/activities/settings/Opds{ServerList,Settings}Activity.*`
+- `src/activities/network/CalibreConnectActivity.*`
+- tests: `test/opds_parser/*` (its `stubs/` stay, `http_downloader` uses them), `test/opds_server_store`, `test/scripts/test_opds_feed_recovery.py`, `scripts/test_opds_download_folders.py`, `src/simulator/OpdsCatalogSmokeTest.*`
+
+Call sites cut (re-check after upstream merges):
+- `ActivityManager.{h,cpp}`: `goToBrowser()` / `goToOpdsServer()` removed; `goToCalibreWireless()` is an inert stub (reader, power-button and chord shortcuts still call it).
+- `main.cpp`: `OPDS` network boot target logs and is ignored.
+- `NetworkModeSelectionActivity.cpp`, `CrossPointWebServerActivity.cpp`: OPDS and Calibre rows and handlers removed (the enum values stay).
+- `SettingsList.{h,cpp}`, `SettingsActivity.cpp`: OPDS Servers row and the `opdsDownloadFolder` web setting removed. The `opds*` fields in `CrossPointSettings` stay so the persisted layout is unchanged.
+- `QuickActions.h`: Calibre Wireless is hidden from pickers like Sync Book.
+- `CrossPointWebServer.{h,cpp}`, `web/pages/settings.{html,js,css}`: `/api/opds*` endpoints and the OPDS settings UI removed.
+- `test/http_downloader`: OPDS feed-failure assertions and the `OpdsParser` test removed; the generic download tests stay.
+- `src/simulator/PluginSmokeTest.cpp`, `SimulatorSmokeTest.cpp`, `scripts/run_simulator_smoke_test.py` (`--opds-catalog`): OPDS scenarios removed.
+
 ## Planned
 
-- Tier 2: OPDS, Calibre connect.
 - Tier 3: OTA, NTP clock sync, font download (check sharing with `HttpDownloader` first).
 - Later: clippings.
