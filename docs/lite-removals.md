@@ -67,6 +67,21 @@ Call sites cut (re-check after upstream merges):
 - `test/http_downloader`: OPDS feed-failure assertions and the `OpdsParser` test removed; the generic download tests stay.
 - `src/simulator/PluginSmokeTest.cpp`, `SimulatorSmokeTest.cpp`, `scripts/run_simulator_smoke_test.py` (`--opds-catalog`): OPDS scenarios removed.
 
+## Build gotcha: boot loop with a `memcpy` cache error
+
+Symptom: the device boot-loops right after flashing with
+`Guru Meditation Error: Core 0 panic'ed (Cache error). Cached memory region accessed while ibus or cache is disabled`,
+and the faulting PC (`MEPC`) is `memcpy` at a `0x42xxxxxx` (flash) address, reached from
+`esp_flash_init_default_chip` / `read_id_core`.
+
+Cause: the toolchain's flash-resident `memcpy` was linked instead of IDF's IRAM/ROM copy. It happened with stale,
+git-ignored generated files in the repo root (`sdkconfig.default`, `sdkconfig.defaults`); the same source built fine
+earlier on the same pin (ESP-IDF 5.5.5), and upstream's release builds are fine too.
+
+Fix: delete `sdkconfig.default` and `sdkconfig.defaults`, delete `~/.platformio/packages/framework-arduinoespressif32-libs`
+and `.pio/build/<env>`, then rebuild. A good build has `memcpy` in IRAM (`0x4038xxxx`, not `0x42xxxxxx`):
+`riscv32-esp-elf-gcc-nm -S .pio/build/default/firmware.elf | grep -w memcpy`.
+
 ## Planned
 
 - Tier 3: OTA, NTP clock sync, font download (check sharing with `HttpDownloader` first).
