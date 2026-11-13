@@ -1585,6 +1585,8 @@ void SettingsActivity::toggleCurrentSetting() {
         return;
       }
       case SettingAction::OPDSBrowser:  // OPDS was removed from this fork.
+      case SettingAction::CheckForUpdates:  // Network OTA was removed from this fork.
+      case SettingAction::DownloadFonts:    // Font download was removed from this fork.
         break;
       case SettingAction::Network:
         startActivityForResult(std::make_unique<WifiSelectionActivity>(renderer, mappedInput, false),
@@ -1617,14 +1619,8 @@ void SettingsActivity::toggleCurrentSetting() {
       case SettingAction::ClearCache:
         startActivityForResult(std::make_unique<ClearCacheActivity>(renderer, mappedInput), resultHandler);
         break;
-      case SettingAction::CheckForUpdates:
-        silentRestartToNetwork(NetworkBootTarget::OTA);
-        break;
       case SettingAction::SdFirmwareUpdate:
         startActivityForResult(std::make_unique<SdFirmwareUpdateActivity>(renderer, mappedInput), resultHandler);
-        break;
-      case SettingAction::DownloadFonts:
-        silentRestartToManageFonts();
         break;
       case SettingAction::TtfRendering: {
 #if CROSSINK_SCALABLE_FONTS

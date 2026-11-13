@@ -50,7 +50,6 @@ bool silentRestartToReader(bool cleanImageBaseOnEntry = false);  // currently-op
 // Reboots immediately after an activity releases exclusive raw storage.
 bool restartToHomeAfterStorageHandoff();
 bool silentRestartToNetwork(NetworkBootTarget target, uint32_t payload = 0);
-bool silentRestartToManageFonts();
 
 void armSilentRestartReaderPageBuild(const std::string& bookPath, uint16_t spineIndex, uint16_t targetPage,
                                      bool autoPageTurnActive);

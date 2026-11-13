@@ -3,7 +3,6 @@ add_executable(OtaStagingGuardTest
 )
 
 target_compile_definitions(OtaStagingGuardTest PRIVATE
-  OTA_UPDATER_SOURCE_PATH="${REPO_ROOT}/src/network/OtaUpdater.cpp"
   FIRMWARE_FLASHER_SOURCE_PATH="${REPO_ROOT}/src/network/FirmwareFlasher.cpp"
 )
 

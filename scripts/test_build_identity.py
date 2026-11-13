@@ -90,29 +90,6 @@ class BuildIdentityTest(unittest.TestCase):
             self.assertEqual([item[0] for item in env.defines],
                              ["ASSET_DOWNLOAD_BASE_URL", "FONT_DOWNLOAD_BASE_URL"])
 
-    def test_font_manifest_url_matches_build_configuration_and_format(self):
-        header = (ROOT / "src/activities/settings/FontDownloadActivity.h").read_text()
-        macros = header[header.index("#define FONTS_MANIFEST_VERSION"):header.index("class FontDownloadActivity")]
-        font_header = (ROOT / "lib/EpdFont/SdCardFont.h").read_text()
-        version = re.search(r"^#define CPFONT_VERSION ([0-9]+)$", font_header, re.M).group(1)
-        manifest_version = re.search(r"^#define FONTS_MANIFEST_VERSION ([0-9]+)$", macros, re.M).group(1)
-        for prefix in (None, "http://fonts.example.com/", "https://fonts.example.com/custom/"):
-            with self.subTest(prefix=prefix):
-                source = f"#define CPFONT_VERSION {version}\n"
-                if prefix is not None:
-                    source += f'#define FONT_DOWNLOAD_BASE_URL "{prefix}"\n'
-                effective_prefix = prefix or "https://github.com/uxjulia/crossink-fonts/releases/download/"
-                catalog_base = f"{effective_prefix}sd-fonts-m{manifest_version}-b{version}/"
-                expected = catalog_base + "fonts.json"
-                source += macros + f'\nstatic_assert(__builtin_strcmp(FONT_MANIFEST_URL, "{expected}") == 0);\n'
-                source += f'static_assert(__builtin_strcmp(FONT_DOWNLOAD_CATALOG_BASE_URL, "{catalog_base}") == 0);\n'
-                if prefix is None:
-                    source += '#ifndef FONT_DOWNLOAD_USE_GITHUB_RELEASES\n#error Missing GitHub fallback\n#endif\n'
-                else:
-                    source += '#ifdef FONT_DOWNLOAD_USE_GITHUB_RELEASES\n#error Custom host must retain its catalog base URL\n#endif\n'
-                subprocess.run(["c++", "-std=c++17", "-x", "c++", "-fsyntax-only", "-"],
-                               input=source, text=True, check=True, capture_output=True)
-
     def test_identity_only_changes_one_compile_environment(self):
         function = MODULE["inject_version"]
         globals_ = function.__globals__

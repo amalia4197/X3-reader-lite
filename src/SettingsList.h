@@ -876,7 +876,6 @@ inline std::vector<SettingInfo> buildReaderFontSettingsList(const std::vector<Se
   addSettingByName(settings, allSettings, StrId::STR_FOCUS_READING);
   addSettingByName(settings, allSettings, StrId::STR_GUIDE_READING);
   addSettingByName(settings, allSettings, StrId::STR_RULED_LINES);
-  settings.push_back(SettingInfo::Action(StrId::STR_DOWNLOAD_FONTS, SettingAction::DownloadFonts));
   addSettingByName(settings, allSettings, StrId::STR_SD_FONT_SIZE_RANGE);
   return settings;
 }
@@ -1140,7 +1139,6 @@ inline std::vector<SettingInfo> buildSystemSettingsParentList(const std::vector<
   systemSettings.push_back(SettingInfo::Action(StrId::STR_PLUGINS, SettingAction::Plugins));
 #if !FREEINK_DEVICE_PICCO
   // Picco retains the vendor recovery slot and has no spare application slot.
-  systemSettings.push_back(SettingInfo::Action(StrId::STR_CHECK_UPDATES, SettingAction::CheckForUpdates));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_SD_FIRMWARE_UPDATE, SettingAction::SdFirmwareUpdate));
 #endif
   systemSettings.push_back(SettingInfo::Action(StrId::STR_RELEASE_NOTES, SettingAction::ReleaseNotes));

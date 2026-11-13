@@ -110,8 +110,6 @@ inline esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_
 #include "activities/reader/ReadingStatsUtils.h"
 #include "activities/reader/StatsBackup.h"
 #include "activities/settings/AssetDownloadActivity.h"
-#include "activities/settings/FontDownloadActivity.h"
-#include "activities/settings/OtaUpdateActivity.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
 #include "components/UITheme.h"
 #include "components/icons/tablerFilledIcons.h"
@@ -514,7 +512,6 @@ bool silentRestartToNetwork(const NetworkBootTarget target, const uint32_t paylo
   return restartWithSilentToken(static_cast<uint32_t>(target), payload);
 }
 
-bool silentRestartToManageFonts() { return silentRestartToNetwork(NetworkBootTarget::MANAGE_FONTS); }
 
 bool isGlobalPowerButtonAction(const CrossPointSettings::SHORT_PWRBTN action) {
   return isPowerButtonActionAvailableOutsideReader(action);
@@ -1810,20 +1807,11 @@ void setup() {
   } else if (resume == BootResume::Network) {
     bool launched = false;
     switch (static_cast<NetworkBootTarget>(snapshotTarget)) {
-      case NetworkBootTarget::OTA: {
-        auto otaActivity = makeUniqueNoThrow<OtaUpdateActivity>(renderer, mappedInputManager);
-        if (otaActivity) {
-          activityManager.replaceActivity(std::move(otaActivity));
-          launched = true;
-        } else {
-          LOG_ERR("MAIN", "OOM: OTA activity after minimal boot (free=%u maxAlloc=%u)", ESP.getFreeHeap(),
-                  ESP.getMaxAllocHeap());
-        }
-        break;
-      }
       case NetworkBootTarget::PLUGINS:
         launched = activityManager.goToPlugins(true);
         break;
+      case NetworkBootTarget::OTA:
+      case NetworkBootTarget::MANAGE_FONTS:
       case NetworkBootTarget::OPDS:
       case NetworkBootTarget::KOREADER_SYNC:
       case NetworkBootTarget::KOREADER_AUTH:
@@ -1840,17 +1828,6 @@ void setup() {
           launched = true;
         } else {
           LOG_ERR("MAIN", "OOM: asset downloads after minimal boot");
-        }
-        break;
-      }
-      case NetworkBootTarget::MANAGE_FONTS: {
-        auto fontsActivity = makeUniqueNoThrow<FontDownloadActivity>(renderer, mappedInputManager);
-        if (fontsActivity) {
-          activityManager.replaceActivity(std::move(fontsActivity));
-          launched = true;
-        } else {
-          LOG_ERR("MAIN", "OOM: Manage Fonts activity after minimal boot (free=%u maxAlloc=%u)", ESP.getFreeHeap(),
-                  ESP.getMaxAllocHeap());
         }
         break;
       }
