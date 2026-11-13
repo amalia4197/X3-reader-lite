@@ -18,7 +18,6 @@
 #include "SilentRestart.h"
 #include "WifiSelectionActivity.h"
 #include "activities/ActivityManager.h"
-#include "activities/network/CalibreConnectActivity.h"
 #include "components/CompactHeader.h"
 #include "components/TouchHeaderBackButton.h"
 #include "components/UITheme.h"
@@ -155,11 +154,7 @@ void CrossPointWebServerActivity::onExit() {
 
 void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) {
   const char* modeName = "Join Network";
-  if (mode == NetworkMode::CONNECT_CALIBRE) {
-    modeName = "Connect to Calibre";
-  } else if (mode == NetworkMode::OPDS_BROWSER) {
-    modeName = "OPDS Browser";
-  } else if (mode == NetworkMode::CREATE_HOTSPOT) {
+  if (mode == NetworkMode::CREATE_HOTSPOT) {
     modeName = "Create Hotspot";
   } else if (mode == NetworkMode::NEARBY_STATS_SYNC) {
     modeName = "Nearby Stats Sync";
@@ -170,11 +165,6 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
 
   if (mode == NetworkMode::USB_DRIVE) {
     activityManager.goToUsbDrive();
-    return;
-  }
-
-  if (mode == NetworkMode::OPDS_BROWSER) {
-    activityManager.goToBrowser();
     return;
   }
 
@@ -195,16 +185,14 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
       case NetworkMode::JOIN_NETWORK:
         activityManager.goToJoinNetworkFileTransfer(returnBookPath);
         break;
-      case NetworkMode::CONNECT_CALIBRE:
-        activityManager.goToCalibreWireless(returnBookPath);
-        break;
       case NetworkMode::CREATE_HOTSPOT:
         activityManager.goToHotspotFileTransfer(returnBookPath);
         break;
       case NetworkMode::USB_DRIVE:
         activityManager.goToUsbDrive();
         break;
-      case NetworkMode::OPDS_BROWSER:
+      case NetworkMode::CONNECT_CALIBRE:  // removed from this fork
+      case NetworkMode::OPDS_BROWSER:     // removed from this fork
       case NetworkMode::NEARBY_STATS_SYNC:
       case NetworkMode::NEARBY_BOOK_RECEIVE:
       case NetworkMode::SYNC_BOOKS:
@@ -212,36 +200,6 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
       case NetworkMode::SYNC_CLIPPINGS:
         break;
     }
-    return;
-  }
-
-  if (mode == NetworkMode::CONNECT_CALIBRE) {
-    // The child activity must survive this callback; allocate only its small control object on the heap.
-    auto calibreActivity = makeUniqueNoThrow<CalibreConnectActivity>(renderer, mappedInput, !returnBookPath.empty());
-    if (!calibreActivity) {
-      LOG_ERR("WEBACT", "OOM: Calibre activity (size=%u free=%u maxAlloc=%u)",
-              static_cast<unsigned>(sizeof(CalibreConnectActivity)), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
-      exitToOrigin();
-      return;
-    }
-
-    startActivityForResult(std::move(calibreActivity), [this](const ActivityResult& result) {
-      state = WebServerActivityState::MODE_SELECTION;
-
-      if (networkBootReady) {
-        exitToOrigin();
-        return;
-      }
-
-      startActivityForResult(std::make_unique<NetworkModeSelectionActivity>(renderer, mappedInput),
-                             [this](const ActivityResult& result) {
-                               if (result.isCancelled) {
-                                 exitToOrigin();
-                               } else {
-                                 onNetworkModeSelected(std::get<NetworkModeResult>(result.data).mode);
-                               }
-                             });
-    });
     return;
   }
 

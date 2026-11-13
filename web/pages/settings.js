@@ -230,7 +230,6 @@ let allSettings = [];
       for (const category in groups) {
         html += '<div class="card"><h2>' + escapeHtml(category) + '</h2>';
         groups[category].forEach(function(s) {
-          if (s.key === 'opdsDownloadFolder') return;
           html += '<div class="setting-row" id="row-setting-' + s.key + '">' +
             '<span class="setting-name">' + escapeHtml(s.name) + '</span>' +
             '<span class="setting-control">' + renderControl(s) + '</span>' +
@@ -241,11 +240,6 @@ let allSettings = [];
 
       container.innerHTML = html;
       updateSettingsVisibility();
-      const folderControl = document.getElementById('setting-opdsDownloadFolder');
-      if (folderControl) {
-        folderControl.value = originalValues.opdsDownloadFolder || '';
-        updateOpdsDestinations();
-      }
       document.getElementById('save-container').style.display = '';
       document.getElementById('saveBtn').disabled = true;
       preserveQuickResumeTimeoutOn = getControlValue('quickResumeSleepScreen') === 1;
@@ -306,7 +300,6 @@ let allSettings = [];
       if (Object.prototype.hasOwnProperty.call(changes, 'trackReadingStats')) {
         await loadSettings();
       }
-      updateOpdsDestinations();
 
       showMessage('Settings saved successfully!', false);
     } catch (e) {
@@ -599,202 +592,6 @@ let allSettings = [];
     }
   }
 
-  // --- OPDS Server Management ---
-  // Dynamically renders an editable list of OPDS servers, communicating with the
-  // /api/opds REST endpoints. Password fields are never pre-filled for security;
-  // the "(unchanged)" placeholder indicates an existing password is preserved on save.
-  let opdsServers = [];
-
-  function opdsFolderMode(folder) {
-    return !folder ? 'default' : folder === '/' ? 'root' : 'custom';
-  }
-
-  function updateOpdsDestinations() {
-    document.querySelectorAll('[data-opds-folder]').forEach(function(server) {
-      const id = server.dataset.opdsFolder;
-      const mode = document.getElementById('opds-folder-mode-' + id).value;
-      const input = document.getElementById('opds-folder-' + id);
-      document.getElementById('opds-folder-path-' + id).hidden = mode !== 'custom';
-      const path = mode === 'default' ? originalValues.opdsDownloadFolder || '/' :
-        mode === 'root' ? '/' : input.value.trim();
-      document.getElementById('opds-destination-' + id).textContent =
-        'Downloads to: ' + (path || 'Enter folder path') + (mode === 'default' ? ' (default)' : '');
-    });
-  }
-
-  async function saveOpdsDefaultFolder() {
-    const input = document.getElementById('setting-opdsDownloadFolder');
-    try {
-      const resp = await fetch('/api/settings', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opdsDownloadFolder: input.value })
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      // Read the normalized saved path without replacing unsaved server forms.
-      const settings = await fetch('/api/settings');
-      if (!settings.ok) throw new Error('Folder saved, but settings could not be refreshed');
-      const saved = (await settings.json()).find(function(s) { return s.key === 'opdsDownloadFolder'; });
-      if (saved) {
-        input.value = saved.value;
-        originalValues.opdsDownloadFolder = saved.value;
-        const setting = allSettings.find(function(s) { return s.key === 'opdsDownloadFolder'; });
-        if (setting) setting.value = saved.value;
-      }
-      updateOpdsDestinations();
-      markChanged();
-      showMessage('Default download folder saved!', false);
-    } catch (error) { showMessage('Error: ' + error.message, true); }
-  }
-
-  function renderOpdsServer(srv, idx) {
-    const isNew = idx === -1;
-    const id = isNew ? 'new' : idx;
-    return '<div class="opds-server" id="opds-' + id + '" data-opds-folder="' + id + '">' +
-      '<div class="setting-row">' +
-        '<span class="setting-name">Server Name</span>' +
-        '<span class="setting-control"><input type="text" id="opds-name-' + id + '" value="' + escapeHtml(srv.name || '') + '"></span>' +
-      '</div>' +
-      '<div class="setting-row">' +
-        '<span class="setting-name">URL</span>' +
-        '<span class="setting-control"><input type="text" id="opds-url-' + id + '" value="' + escapeHtml(srv.url || '') + '"></span>' +
-      '</div>' +
-      '<div class="setting-row">' +
-        '<span class="setting-name">Username</span>' +
-        '<span class="setting-control"><input type="text" id="opds-user-' + id + '" value="' + escapeHtml(srv.username || '') + '"></span>' +
-      '</div>' +
-      '<div class="setting-row">' +
-        '<span class="setting-name">Password</span>' +
-        '<span class="setting-control"><input type="password" id="opds-pass-' + id + '" placeholder="' + (srv.hasPassword ? '(unchanged)' : '') + '"></span>' +
-      '</div>' +
-      '<div class="setting-row">' +
-        '<span class="setting-name">Filename</span>' +
-        '<span class="setting-control"><select id="opds-filename-' + id + '">' +
-          '<option value="author_title"' + ((srv.filenameFormat || 'author_title') === 'author_title' ? ' selected' : '') + '>Author - Title</option>' +
-          '<option value="title_author"' + (srv.filenameFormat === 'title_author' ? ' selected' : '') + '>Title - Author</option>' +
-        '</select></span>' +
-      '</div>' +
-      '<div class="setting-row">' +
-        '<label class="setting-name" for="opds-server-filename-' + id + '">Use Server Filename</label>' +
-        '<span class="setting-control"><label class="toggle-switch">' +
-          '<input type="checkbox" id="opds-server-filename-' + id + '"' + (srv.useServerFilename ? ' checked' : '') + '>' +
-          '<span class="toggle-slider"></span></label></span>' +
-      '</div>' +
-      '<div class="setting-row">' +
-        '<label class="setting-name" for="opds-folder-mode-' + id + '">Download Folder</label>' +
-        '<span class="setting-control"><select id="opds-folder-mode-' + id + '" onchange="updateOpdsDestinations()">' +
-          '<option value="default"' + (opdsFolderMode(srv.downloadFolder) === 'default' ? ' selected' : '') + '>Use default</option>' +
-          '<option value="root"' + (opdsFolderMode(srv.downloadFolder) === 'root' ? ' selected' : '') + '>SD root</option>' +
-          '<option value="custom"' + (opdsFolderMode(srv.downloadFolder) === 'custom' ? ' selected' : '') + '>Custom folder</option>' +
-        '</select></span>' +
-      '</div>' +
-      '<div class="setting-row" id="opds-folder-path-' + id + '"' + (opdsFolderMode(srv.downloadFolder) !== 'custom' ? ' hidden' : '') + '>' +
-        '<label class="setting-name" for="opds-folder-' + id + '">Folder path</label>' +
-        '<span class="setting-control"><input type="text" id="opds-folder-' + id + '" maxlength="63" placeholder="/Books/Calibre" value="' + escapeHtml(srv.downloadFolder && srv.downloadFolder !== '/' ? srv.downloadFolder : '') + '" oninput="updateOpdsDestinations()"></span>' +
-      '</div>' +
-      '<p class="opds-destination" id="opds-destination-' + id + '" aria-live="polite"></p>' +
-      '<div class="opds-actions">' +
-        '<button class="btn-small btn-save-server" onclick="saveOpdsServer(' + idx + ')">Save</button>' +
-        (isNew ? '' : '<button class="btn-small btn-delete" onclick="deleteOpdsServer(' + idx + ')">Delete</button>') +
-      '</div>' +
-    '</div>';
-  }
-
-  function renderOpdsSection() {
-    const container = document.getElementById('opds-container');
-    let html = '<div class="card"><h2>OPDS Servers</h2>' +
-      '<div class="setting-row"><label class="setting-name" for="setting-opdsDownloadFolder">Default download folder</label>' +
-      '<span class="setting-control"><input type="text" id="setting-opdsDownloadFolder" maxlength="63" value="' + escapeHtml(originalValues.opdsDownloadFolder || '') + '"></span></div>' +
-      '<div class="opds-actions"><button class="btn-small" onclick="saveOpdsDefaultFolder()">Save default</button></div>' +
-      '<p class="opds-folder-hint">Used by servers set to Use default. Blank means SD root.</p>';
-
-    if (opdsServers.length === 0) {
-      html += '<p style="color:var(--label-color);text-align:center;">No OPDS servers configured</p>';
-    } else {
-      opdsServers.forEach(function(srv, idx) {
-        html += renderOpdsServer(srv, idx);
-      });
-    }
-
-    html += '<div style="margin-top:12px;text-align:center;">' +
-      '<button class="btn-small btn-add" onclick="addOpdsServer()">+ Add Server</button>' +
-    '</div></div>';
-    container.innerHTML = html;
-    updateOpdsDestinations();
-  }
-
-  async function loadOpdsServers() {
-    try {
-      const resp = await fetch('/api/opds');
-      if (!resp.ok) throw new Error('Failed to load');
-      opdsServers = await resp.json();
-      renderOpdsSection();
-    } catch (e) {
-      console.error('OPDS load error:', e);
-    }
-  }
-
-  function addOpdsServer() {
-    const container = document.getElementById('opds-container');
-    const card = container.querySelector('.card');
-    const addBtn = card.querySelector('.btn-add').parentElement;
-    // Prevent multiple unsaved new-server forms at once (idx -1 → id "new")
-    if (document.getElementById('opds-new')) return;
-    addBtn.insertAdjacentHTML('beforebegin', renderOpdsServer({name:'',url:'',username:'',hasPassword:false,filenameFormat:'author_title'}, -1));
-    updateOpdsDestinations();
-  }
-
-  async function saveOpdsServer(idx) {
-    const id = idx === -1 ? 'new' : idx;
-    const data = {
-      name: document.getElementById('opds-name-' + id).value,
-      url: document.getElementById('opds-url-' + id).value,
-      username: document.getElementById('opds-user-' + id).value,
-      filenameFormat: document.getElementById('opds-filename-' + id).value,
-      useServerFilename: document.getElementById('opds-server-filename-' + id).checked,
-    };
-    const mode = document.getElementById('opds-folder-mode-' + id).value;
-    const folder = document.getElementById('opds-folder-' + id).value.trim();
-    if (mode === 'custom' && !folder) {
-      showMessage('Enter a folder path, or choose Use default.', true);
-      return;
-    }
-    data.downloadFolder = mode === 'default' ? '' : mode === 'root' ? '/' : folder;
-    // Only include password in payload when the user actually typed something;
-    // omitting it tells the server to keep the existing password.
-    const pass = document.getElementById('opds-pass-' + id).value;
-    if (pass) data.password = pass;
-    if (idx >= 0) data.index = idx;
-
-    try {
-      const resp = await fetch('/api/opds', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      showMessage('OPDS server saved!', false);
-      await loadOpdsServers();
-    } catch (e) {
-      showMessage('Error: ' + e.message, true);
-    }
-  }
-
-  async function deleteOpdsServer(idx) {
-    if (!await showWebConfirm('Delete this OPDS server?')) return;
-    try {
-      const resp = await fetch('/api/opds/delete', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({index: idx})
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      showMessage('OPDS server deleted', false);
-      await loadOpdsServers();
-    } catch (e) {
-      showMessage('Error: ' + e.message, true);
-    }
-  }
-
   // Sequential, not concurrent: the device's web server handles one client
   // connection at a time, and three simultaneous fetches on page load can
   // stall long enough to delay or interrupt a response.
@@ -802,7 +599,6 @@ let allSettings = [];
     await loadSettings();
     await loadStatusBars();
     await loadWifiNetworks();
-    await loadOpdsServers();
   })();
 
 loadPlugins("settings");

@@ -30,13 +30,11 @@
 #include "CrossPointState.h"
 #include "FilenameFontSystem.h"
 #include "GlobalActions.h"
-#include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
 #include "ReleaseNotes.h"
 #include "SilentRestart.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
-#include "browser/OpdsBookBrowserActivity.h"
 #include "components/TouchRegistry.h"
 #include "components/UITheme.h"
 #include "home/AlertActivity.h"
@@ -55,7 +53,6 @@
 #include "reader/EpubReaderActivity.h"
 #include "reader/GlobalReadingStats.h"
 #include "reader/ReaderActivity.h"
-#include "settings/OpdsServerListActivity.h"
 #include "settings/ReleaseNotesActivity.h"
 #include "settings/SettingsActivity.h"
 #include "util/FrontlightPanelActivity.h"
@@ -1001,8 +998,9 @@ void ActivityManager::goToNearbyBookReceive() {
   replaceActivity(std::move(activity));
 }
 
-void ActivityManager::goToCalibreWireless(const std::string& returnBookPath) {
-  restartToFileTransfer(NetworkMode::CONNECT_CALIBRE, returnBookPath);
+// Calibre wireless was removed from this fork. The shortcut actions stay valid for saved settings but do nothing.
+void ActivityManager::goToCalibreWireless(const std::string&) {
+  LOG_DBG("ACT", "Calibre wireless shortcut ignored: feature removed");
 }
 
 void ActivityManager::goToJoinNetworkFileTransfer(const std::string& returnBookPath) {
@@ -1110,51 +1108,8 @@ bool ActivityManager::goToPlugins(const bool networkBootReady) {
   return true;
 }
 
-void ActivityManager::goToBrowser() {
-  const auto& servers = OPDS_STORE.getServers();
-  // Skip the server picker when there's only one server configured
-  if (servers.size() == 1) {
-    goToOpdsServer(0);
-  } else {
-    replaceActivity(std::make_unique<OpdsServerListActivity>(renderer, mappedInput, true));
-  }
-}
-
-bool ActivityManager::goToOpdsServer(const uint32_t serverIndex, const bool networkBootReady) {
-#ifndef SIMULATOR
-  if (!networkBootReady) {
-    silentRestartToNetwork(NetworkBootTarget::OPDS, serverIndex);
-    return true;
-  }
-#else
-  // The desktop build has no fragmented WiFi heap to clear; keep the preview in-process.
-  (void)networkBootReady;
-#endif
-
-  OPDS_STORE.loadFromFile();
-  const auto* storedServer = OPDS_STORE.getServer(serverIndex);
-  if (!storedServer) {
-    LOG_ERR("ACT", "OPDS network boot server index out of range: %lu", static_cast<unsigned long>(serverIndex));
-    return false;
-  }
-
-  OpdsServer server = *storedServer;
-  OPDS_STORE.release();
-  auto browser = makeUniqueNoThrow<OpdsBookBrowserActivity>(renderer, mappedInput, std::move(server));
-  if (!browser) {
-    LOG_ERR("ACT", "OOM: OPDS browser after minimal boot (free=%u maxAlloc=%u)", ESP.getFreeHeap(),
-            ESP.getMaxAllocHeap());
-    return false;
-  }
-  replaceActivity(std::move(browser));
-  return true;
-}
-
 void ActivityManager::goToReader(std::string path, const bool suppressBackRelease, const bool allowFastInitialRefresh,
                                  const bool cleanImageBaseOnEntry, const bool keepWakeFrame) {
-  // OPDS credentials are unrelated to local reading and may contain several
-  // heap-backed strings. Home reloads them lazily when it becomes active.
-  OPDS_STORE.release();
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path), suppressBackRelease,
                                                    allowFastInitialRefresh, cleanImageBaseOnEntry, keepWakeFrame));
 }
@@ -1229,8 +1184,6 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, const HalDisplay::Ref
       initialMenuItem = HomeMenuItem::PLUGINS;
     } else if (activityName == "Library") {
       initialMenuItem = HomeMenuItem::LIBRARY;
-    } else if (activityName == "OpdsBookBrowser") {
-      initialMenuItem = HomeMenuItem::FILE_TRANSFER;
     } else if (activityName == "CrossPointWebServer") {
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
     } else if (activityName == "NearbyStatsSync") {

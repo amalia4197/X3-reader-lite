@@ -26,7 +26,6 @@
 #include "BookFontSystem.h"
 #include "BookmarkListSmokeTest.h"
 #include "ClippingSelectionSmokeTest.h"
-#include "OpdsCatalogSmokeTest.h"
 #include "PluginSmokeTest.h"
 #include "SilentRestart.h"
 #include "UpstreamFeatureSmokeTest.h"
@@ -108,7 +107,6 @@
 #include "activities/settings/FrontlightTimePickerActivity.h"
 #include "activities/settings/HyphenationManagerActivity.h"
 #include "activities/settings/KeyboardLayoutsActivity.h"
-#include "activities/settings/OpdsServerListActivity.h"
 #include "activities/settings/OtaUpdateActivity.h"
 #include "activities/settings/QuickActionsActivity.h"
 #include "activities/settings/ReleaseNotesActivity.h"
@@ -752,10 +750,6 @@ struct ReaderDrawerLayoutSmokeTest {
             {
               DictionarySelectActivity screen(renderer, mappedInputManager);
               verifyScreen(screen, "dictionary");
-            }
-            {
-              OpdsServerListActivity screen(renderer, mappedInputManager);
-              verifyScreen(screen, "opds-servers");
             }
             {
               OptionSelectionActivity screen(renderer, mappedInputManager, "HeaderOptions", StrId::STR_LANGUAGE,
@@ -9103,7 +9097,6 @@ class SimulatorSmokeTest {
     }
     if (tickUpstreamFeatureSmokeTest()) return;
     if (tickAssetDownloadSmokeTest()) return;
-    if (tickOpdsCatalogSmokeTest()) return;
     if (tickBookmarkListSmokeTest()) return;
 
     if (std::getenv("CROSSINK_SIMULATOR_SMOKE_SUPPORT_EXPORT")) {

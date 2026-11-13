@@ -15,7 +15,6 @@
 #include <cstdlib>
 #include <filesystem>
 
-#include "OpdsServerStore.h"
 #include "activities/ActivityManager.h"
 #include "activities/home/HomeActivity.h"
 #include "activities/network/NetworkModeSelectionActivity.h"
@@ -139,7 +138,7 @@ struct PluginCatalogSmokeTest {
         RenderLock lock;
         home.hasReadingStats = home.hasBookmarks = true;
         home.selectorIndex = 0;
-        require(home.getMenuItemCount() == 7, "OPDS still occupies a Home row");
+        require(home.getMenuItemCount() == 7, "Unexpected Home row count");
       }
       capture(home, "home-all-actions");
 #if CROSSINK_APP_CAP_TOUCH
@@ -157,83 +156,30 @@ struct PluginCatalogSmokeTest {
       }
       require(settingsVisible, "Settings missing from first Home page");
 #endif
-      // Two servers exercise the existing picker without making a network request.
-      if (OPDS_STORE.getCount() < 2)
-        require(OPDS_STORE.addServer({"Second OPDS", "https://second.example.invalid"}), "Second OPDS fixture");
       activityManager.goToFileTransfer();
       phase = -6;
       return;
     }
-    if (phase == -6 || phase == -9) {
+    if (phase == -6) {
       require(activityManager.isCurrentActivityNamed("NetworkModeSelection"), "File Transfer menu missing");
       auto& menu = *static_cast<NetworkModeSelectionActivity*>(activityManager.simulatorCurrentActivity());
-      if (phase == -6) {
-        for (int theme = 0; theme < CrossPointSettings::UI_THEME_COUNT; ++theme) {
-          {
-            RenderLock lock;
-            SETTINGS.uiTheme = theme;
-            UITheme::getInstance().reload();
-            menu.ui.reset();
-          }
-          capture(menu, ("file-transfer-theme-" + std::to_string(theme)).c_str());
-        }
+      for (int theme = 0; theme < CrossPointSettings::UI_THEME_COUNT; ++theme) {
         {
           RenderLock lock;
-          SETTINGS.uiTheme = originalTheme;
+          SETTINGS.uiTheme = theme;
           UITheme::getInstance().reload();
           menu.ui.reset();
-          menu.selectedIndex = 0;
         }
-        capture(menu, "file-transfer");
-        mappedInputManager.simulatorInjectPress(MappedInputManager::Button::Confirm);
-        pendingRelease = static_cast<int>(MappedInputManager::Button::Confirm);
-        menu.loop();
-        mappedInputManager.simulatorClearInputFrame();
-        phase = -5;
-      } else {
-#if CROSSINK_APP_CAP_TOUCH
-        capture(menu, "file-transfer");
-        freeink::ui::Interaction hit;
-        bool found = false;
-        int tapX = 0, tapY = 0;
-        {
-          RenderLock lock;
-          for (int y = 0; y < renderer.getScreenHeight() && !found; y += 4)
-            for (int x = 0; x < renderer.getScreenWidth(); x += 4)
-              if (menu.ui.app.hitPublished(x, y, 1, hit) && hit.value == 0) {
-                found = true;
-                tapX = x;
-                tapY = y;
-                break;
-              }
-        }
-        require(found, "OPDS missing from File Transfer touch targets");
-        mappedInputManager.simulatorInjectTouchDown(tapX, tapY);
-        menu.loop();
-        mappedInputManager.simulatorClearInputFrame();
-        mappedInputManager.simulatorInjectTouchRelease(tapX, tapY);
-        menu.loop();
-        mappedInputManager.simulatorClearInputFrame();
-        phase = -10;
-#else
-        activityManager.goHome(HomeMenuItem::FILE_TRANSFER);
-        phase = 0;
-#endif
+        capture(menu, ("file-transfer-theme-" + std::to_string(theme)).c_str());
       }
-      return;
-    }
-    if (phase == -5 || phase == -10) {
-      require(activityManager.isCurrentActivityNamed("OpdsServerList"), "File Transfer OPDS action failed");
-      capture(*activityManager.simulatorCurrentActivity(), "opds-servers");
-      mappedInputManager.simulatorInjectPress(MappedInputManager::Button::Back);
-      pendingRelease = static_cast<int>(MappedInputManager::Button::Back);
-      activityManager.simulatorCurrentActivity()->loop();
-      mappedInputManager.simulatorClearInputFrame();
-      phase = phase == -5 ? -9 : -11;
-      return;
-    }
-    if (phase == -11) {
-      require(activityManager.isCurrentActivityNamed("NetworkModeSelection"), "OPDS Back lost File Transfer");
+      {
+        RenderLock lock;
+        SETTINGS.uiTheme = originalTheme;
+        UITheme::getInstance().reload();
+        menu.ui.reset();
+        menu.selectedIndex = 0;
+      }
+      capture(menu, "file-transfer");
       // Release File Transfer before starting the independent Wi-Fi fixture;
       // its normal exit intentionally reboots when networking is active.
       activityManager.goHome(HomeMenuItem::FILE_TRANSFER);
@@ -321,8 +267,6 @@ struct PluginCatalogSmokeTest {
         RenderLock lock;
         SETTINGS.uiTheme = theme;
         UITheme::getInstance().reload();
-        if (!OPDS_STORE.hasServers())
-          require(OPDS_STORE.addServer({"Fixture OPDS", "https://example.invalid"}), "OPDS fixture");
       }
       activityManager.goHome(HomeMenuItem::PLUGINS);
       phase = -3;

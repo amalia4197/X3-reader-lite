@@ -42,7 +42,6 @@
 #include "AppVersion.h"
 #include "CrossPointSettings.h"
 #include "FontInstaller.h"
-#include "OpdsServerStore.h"
 #include "ProtectedPaths.h"
 #include "QuickActions.h"
 #include "SdCardFontSystem.h"
@@ -64,7 +63,6 @@
 #include "util/BookCacheUtils.h"
 #include "util/BookMoveUtils.h"
 #include "util/FontFamilyLabel.h"
-#include "util/OpdsDownloadFolder.h"
 #include "util/ReaderStatusBarJson.h"
 #include "util/StringUtils.h"
 
@@ -518,11 +516,6 @@ void CrossPointWebServer::begin() {
   server->on("/api/fonts", HTTP_GET, [this] { handleFontList(); });
   server->on("/api/fonts/upload", HTTP_POST, [this] { handleFontUpload(); }, [this] { handleFontUploadData(); });
   server->on("/api/fonts/delete", HTTP_POST, [this] { handleFontDelete(); });
-
-  // OPDS server endpoints
-  server->on("/api/opds", HTTP_GET, [this] { handleGetOpdsServers(); });
-  server->on("/api/opds", HTTP_POST, [this] { handlePostOpdsServer(); });
-  server->on("/api/opds/delete", HTTP_POST, [this] { handleDeleteOpdsServer(); });
 
   // Wi-Fi credential endpoints
   server->on("/api/wifi", HTTP_GET, [this] { handleGetWifiNetworks(); });
@@ -1951,19 +1944,6 @@ void CrossPointWebServer::handlePostSettings() {
     return;
   }
 
-  const JsonVariantConst folderValue = doc["opdsDownloadFolder"];
-  if (!folderValue.isUnbound()) {
-    std::string folder;
-    const auto input = folderValue.as<JsonString>();
-    if (!folderValue.is<const char*>() ||
-        !OpdsDownloadFolder::normalize(std::string_view(input.c_str(), input.size()), folder)) {
-      server->send(400, "text/plain", "Invalid download folder (maximum 63 bytes)");
-      return;
-    }
-    doc["opdsDownloadFolder"] = folder == "/" ? "" : folder;
-  }
-  const std::string previousFolder = SETTINGS.opdsDownloadFolder;
-
   sdFontSystem.refreshIfDirty();
   const auto& settings = getSettingsList(&sdFontSystem.registry());
   int applied = 0;
@@ -2042,7 +2022,6 @@ void CrossPointWebServer::handlePostSettings() {
   }
   settingsLock.unlock();  // saveToFile acquires the settings mutex itself.
   if (!SETTINGS.saveToFile()) {
-    if (!folderValue.isUnbound()) strcpy(SETTINGS.opdsDownloadFolder, previousFolder.c_str());
     LOG_ERR("WEB", "Failed to save settings");
     server->send(500, "text/plain", "Failed to save settings");
     sdFontSystem.releaseRegistry();
@@ -2052,147 +2031,6 @@ void CrossPointWebServer::handlePostSettings() {
   LOG_DBG("WEB", "Applied %d setting(s)", applied);
   server->send(200, "text/plain", String("Applied ") + String(applied) + " setting(s)");
   sdFontSystem.releaseRegistry();
-}
-
-// ---- OPDS Server API ----
-
-void CrossPointWebServer::handleGetOpdsServers() const {
-  const auto& servers = OPDS_STORE.getServers();
-
-  // Stream JSON array incrementally to avoid allocating the full response in memory
-  server->setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server->send(200, "application/json", "");
-  server->sendContent("[");
-
-  // Reuse the bounded writer: longer folder paths and escaped URLs must not
-  // truncate an object or produce a leading comma after a skipped server.
-  WebJsonWriter json(*server);
-  for (size_t i = 0; i < servers.size(); i++) {
-    const auto& entry = servers[i];
-    if (i > 0) json.append(",");
-    json.append("{\"index\":");
-    json.appendUnsigned(i);
-    json.append(",\"name\":");
-    json.appendJsonString(entry.name.c_str());
-    json.append(",\"url\":");
-    json.appendJsonString(entry.url.c_str());
-    json.append(",\"username\":");
-    json.appendJsonString(entry.username.c_str());
-    json.append(",\"filenameFormat\":");
-    json.appendJsonString(opdsFilenameFormatToJson(entry.filenameFormat));
-    json.append(entry.useServerFilename ? ",\"useServerFilename\":true" : ",\"useServerFilename\":false");
-    json.append(",\"downloadFolder\":");
-    json.appendJsonString(entry.downloadFolder.c_str());
-    json.append(entry.password.empty() ? ",\"hasPassword\":false}" : ",\"hasPassword\":true}");
-    json.flush();
-    yield();
-  }
-  json.append("]");
-  json.flush();
-  server->sendContent("");
-}
-
-void CrossPointWebServer::handlePostOpdsServer() {
-  if (!server->hasArg("plain")) {
-    server->send(400, "text/plain", "Missing JSON body");
-    return;
-  }
-
-  const String body = server->arg("plain");
-  JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, body);
-  if (err) {
-    server->send(400, "text/plain", String("Invalid JSON: ") + err.c_str());
-    return;
-  }
-
-  OpdsServer opdsServer;
-  opdsServer.name = doc["name"] | std::string("");
-  opdsServer.url = doc["url"] | std::string("");
-  opdsServer.username = doc["username"] | std::string("");
-
-  if (!applyOpdsDownloadFolder(doc.as<JsonVariantConst>(), opdsServer.downloadFolder)) {
-    server->send(400, "text/plain", "Invalid download folder (maximum 63 bytes)");
-    return;
-  }
-  const bool hasDownloadFolder = !doc.as<JsonVariantConst>()["downloadFolder"].isUnbound();
-
-  // The password field is optional in the JSON payload. When absent (vs. present but empty),
-  // we preserve the existing password — the web UI omits it when the user hasn't changed it.
-  bool hasPasswordField = doc["password"].is<const char*>() || doc["password"].is<std::string>();
-  std::string password = doc["password"] | std::string("");
-
-  if (doc["index"].is<int>()) {
-    int idx = doc["index"].as<int>();
-    if (idx < 0 || idx >= static_cast<int>(OPDS_STORE.getCount())) {
-      server->send(400, "text/plain", "Invalid server index");
-      return;
-    }
-    const auto* existing = OPDS_STORE.getServer(static_cast<size_t>(idx));
-    // Preserve existing values for fields older clients do not know how to send.
-    if (existing && !hasPasswordField) {
-      password = existing->password;
-    }
-    if (existing) {
-      opdsServer.filenameFormat = existing->filenameFormat;
-      opdsServer.useServerFilename = existing->useServerFilename;
-    }
-    if (!applyOpdsFilenameSettings(doc.as<JsonVariantConst>(), opdsServer)) {
-      server->send(400, "text/plain", "Invalid server filename option");
-      return;
-    }
-    if (existing && !hasDownloadFolder) opdsServer.downloadFolder = existing->downloadFolder;
-    opdsServer.password = password;
-    if (!OPDS_STORE.updateServer(static_cast<size_t>(idx), opdsServer)) {
-      server->send(500, "text/plain", "Could not save OPDS server");
-      return;
-    }
-    LOG_DBG("WEB", "Updated OPDS server at index %d", idx);
-  } else {
-    if (!applyOpdsFilenameSettings(doc.as<JsonVariantConst>(), opdsServer)) {
-      server->send(400, "text/plain", "Invalid server filename option");
-      return;
-    }
-    opdsServer.password = password;
-    if (!OPDS_STORE.addServer(opdsServer)) {
-      server->send(400, "text/plain", "Cannot add server (limit reached)");
-      return;
-    }
-    LOG_DBG("WEB", "Added new OPDS server: %s", opdsServer.name.c_str());
-  }
-
-  server->send(200, "text/plain", "OK");
-}
-
-// Uses POST (not HTTP DELETE) because ESP32 WebServer doesn't support DELETE with body.
-void CrossPointWebServer::handleDeleteOpdsServer() {
-  if (!server->hasArg("plain")) {
-    server->send(400, "text/plain", "Missing JSON body");
-    return;
-  }
-
-  const String body = server->arg("plain");
-  JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, body);
-  if (err) {
-    server->send(400, "text/plain", String("Invalid JSON: ") + err.c_str());
-    return;
-  }
-
-  if (!doc["index"].is<int>()) {
-    server->send(400, "text/plain", "Missing index");
-    return;
-  }
-
-  int idx = doc["index"].as<int>();
-  if (idx < 0 || idx >= static_cast<int>(OPDS_STORE.getCount())) {
-    server->send(400, "text/plain", "Invalid server index");
-    return;
-  }
-
-  OPDS_STORE.removeServer(static_cast<size_t>(idx));
-  LOG_DBG("WEB", "Deleted OPDS server at index %d", idx);
-  server->send(200, "text/plain", "OK");
 }
 
 // ---- Wi-Fi Credentials API ----

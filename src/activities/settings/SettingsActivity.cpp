@@ -36,7 +36,6 @@
 #include "FrontlightTimePickerActivity.h"
 #include "KeyboardLayoutsActivity.h"
 #include "MappedInputManager.h"
-#include "OpdsServerListActivity.h"
 #include "QuickActions.h"
 #include "QuickActionsActivity.h"
 #include "ReleaseNotesActivity.h"
@@ -1585,8 +1584,7 @@ void SettingsActivity::toggleCurrentSetting() {
         requestUpdate();
         return;
       }
-      case SettingAction::OPDSBrowser:
-        startActivityForResult(std::make_unique<OpdsServerListActivity>(renderer, mappedInput), resultHandler);
+      case SettingAction::OPDSBrowser:  // OPDS was removed from this fork.
         break;
       case SettingAction::Network:
         startActivityForResult(std::make_unique<WifiSelectionActivity>(renderer, mappedInput, false),

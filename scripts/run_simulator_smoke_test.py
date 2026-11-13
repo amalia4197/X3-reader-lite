@@ -481,8 +481,6 @@ def run_smoke(args: argparse.Namespace) -> int:
             capture_dir = Path(args.frontlight_captures).resolve()
             capture_dir.mkdir(parents=True, exist_ok=True)
             env["CROSSINK_SIMULATOR_SMOKE_FRONTLIGHT_CAPTURES"] = str(capture_dir)
-        if args.opds_catalog:
-            env["CROSSINK_SIMULATOR_SMOKE_OPDS_CATALOG"] = "1"
         if args.support_export:
             env["CROSSINK_SIMULATOR_SMOKE_SUPPORT_EXPORT"] = "1"
         if args.bookmarks:
@@ -688,7 +686,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--frontlight-sync", action="store_true", help="Check frontlight sync outside the reader with stats enabled and disabled (X4 Pro)")
     parser.add_argument("--frontlight-layout", action="store_true", help="Check frontlight drawer bounds, handle swipes/taps, reader return and explicit Home across scales, orientations and themes (X4 Pro)")
     parser.add_argument("--frontlight-captures", help="Directory for frontlight layout framebuffer captures (PGM)")
-    parser.add_argument("--opds-catalog", action="store_true", help="Check OPDS catalog release and download return flows")
     parser.add_argument("--support-export", action="store_true", help="Check support export privacy, scopes, cancellation and failure preservation")
     parser.add_argument("--bookmarks", action="store_true", help="Check long bookmark lists from Home and the reader, scrolling, deletion and jumps; captures via --about-captures")
     parser.add_argument("--clipping-metadata", action="store_true", help="Check finished-book metadata migration, blank saved-book recovery and filename fallback; captures via --about-captures")

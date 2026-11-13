@@ -99,7 +99,6 @@ inline esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_
 #include "HyphenationPackStore.h"
 #include "KOReaderCredentialStore.h"
 #include "MappedInputManager.h"
-#include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
@@ -1737,12 +1736,10 @@ void setup() {
         }
         break;
       }
-      case NetworkBootTarget::OPDS:
-        launched = activityManager.goToOpdsServer(snapshotPayload, true);
-        break;
       case NetworkBootTarget::PLUGINS:
         launched = activityManager.goToPlugins(true);
         break;
+      case NetworkBootTarget::OPDS:
       case NetworkBootTarget::KOREADER_SYNC:
       case NetworkBootTarget::KOREADER_AUTH:
         LOG_ERR("MAIN", "Ignoring removed network boot target %lu", static_cast<unsigned long>(snapshotTarget));
