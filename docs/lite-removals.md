@@ -47,7 +47,7 @@ Known leftovers:
 - `lib/KOReaderSync/KOReaderSyncClient.cpp` (network client) is still compiled but unreferenced, except `readerId()`.
 - `docs/` still describes the removed sync features.
 
-## Tier 2: OPDS and Calibre (done, uncommitted)
+## Tier 2: OPDS and Calibre (done)
 
 After (clean build): flash 6,127,491 B (93.5%), RAM 74,300 B (-85,656 B vs Tier 1; -252,886 B vs baseline).
 
@@ -67,6 +67,34 @@ Call sites cut (re-check after upstream merges):
 - `test/http_downloader`: OPDS feed-failure assertions and the `OpdsParser` test removed; the generic download tests stay.
 - `src/simulator/PluginSmokeTest.cpp`, `SimulatorSmokeTest.cpp`, `scripts/run_simulator_smoke_test.py` (`--opds-catalog`): OPDS scenarios removed.
 
+## Tier 3: network OTA and font download (done, uncommitted)
+
+NTP clock sync (`ClockSyncActivity`, Settings > Clock sync now) was kept on request.
+
+After (clean build, ESP-IDF 5.5.5): flash 6,088,033 B (92.9%), RAM 74,244 B (-39,458 B flash vs Tier 2's 6,127,491 B; -292,344 B vs baseline).
+The Tier 2 figure was measured before the `memcpy` boot-loop fix below, so the delta is approximate.
+
+Deleted:
+- `src/network/OtaUpdater.cpp` and `src/activities/settings/OtaUpdateActivity.*` (Settings > Check for updates)
+- `src/activities/settings/FontDownloadActivity.*` (Settings > Download fonts)
+
+Kept on purpose:
+- `src/network/OtaUpdater.h` (declaration only): the external `crossink-simulator` library has a `simulator_ota.cpp` that defines `OtaUpdater` and includes this header, so deleting it breaks the simulator build. Nothing on the device includes it.
+- `FirmwareFlasher`, `FirmwareBoardTag`, `OtaBootSwitch` and `SdFirmwareUpdateActivity` (Settings > SD firmware update, also the boot-time recovery mode).
+- `ClockSyncActivity`, `TrustedTime`, `HalClock`, manual clock offset.
+- `HttpDownloader`, `AssetDownloadActivity` (language and hyphenation packs), `PluginHubInstallActivity`, `CatalogActivity`: still used.
+- `NetworkBootTarget::OTA` / `MANAGE_FONTS` enum values (RTC-validated persisted values).
+
+Call sites cut (re-check after upstream merges):
+- `main.cpp`: `OTA` and `MANAGE_FONTS` network boot targets log and are ignored; `silentRestartToManageFonts()` removed (also from `SilentRestart.h`).
+- `SettingsList.h`, `SettingsActivity.cpp`: the Check for updates and Download fonts rows removed; `CheckForUpdates` / `DownloadFonts` actions are no-op cases.
+- `platformio.ini`: simulator `build_src_filter` no longer lists `OtaUpdater.cpp`.
+- Tests: `test/ota_staging_guard` now checks only `FirmwareFlasher`; `scripts/test_build_identity.py` lost the font-manifest URL test; `test/scripts/test_transfer_reliability.py` lost the font-download retry test; `SimulatorSmokeTest.cpp` lost the OTA and font-download screen captures.
+
+Known leftovers:
+- `FONT_MANIFEST_URL` / `FONTS_MANIFEST_VERSION` macros lived in the deleted `FontDownloadActivity.h`; `lib/EpdFont/SdCardFont.h`, `lib/EpdFont/scripts/cpfont_version.py` and `.github/workflows/release-fonts.yml` still mention them in comments or for upstream's font release pipeline.
+- Fonts now come only from the SD card (web server upload).
+
 ## Build gotcha: boot loop with a `memcpy` cache error
 
 Symptom: the device boot-loops right after flashing with
@@ -84,5 +112,4 @@ and `.pio/build/<env>`, then rebuild. A good build has `memcpy` in IRAM (`0x4038
 
 ## Planned
 
-- Tier 3: OTA, NTP clock sync, font download (check sharing with `HttpDownloader` first).
 - Later: clippings.

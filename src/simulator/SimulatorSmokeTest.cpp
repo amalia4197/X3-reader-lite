@@ -102,12 +102,10 @@
 #include "activities/settings/AboutActivity.h"
 #include "activities/settings/AssetDownloadActivity.h"
 #include "activities/settings/DictionarySelectActivity.h"
-#include "activities/settings/FontDownloadActivity.h"
 #include "activities/settings/FontSelectionActivity.h"
 #include "activities/settings/FrontlightTimePickerActivity.h"
 #include "activities/settings/HyphenationManagerActivity.h"
 #include "activities/settings/KeyboardLayoutsActivity.h"
-#include "activities/settings/OtaUpdateActivity.h"
 #include "activities/settings/QuickActionsActivity.h"
 #include "activities/settings/ReleaseNotesActivity.h"
 #include "activities/settings/ScreenCalibrationActivity.h"
@@ -2324,18 +2322,6 @@ struct ScreenCalibrationSmokeTest {
           valid &= labelsValid;
           // Exercise direct activity renderers that bypass the SDK's normal list layout.
           if ((variant == CrossPointSettings::CLASSIC || variant == CrossPointSettings::ROUNDEDRAFF) && index >= 2) {
-            auto ota = std::make_unique<OtaUpdateActivity>(renderer, mappedInputManager);
-            ota->state = OtaUpdateActivity::WAITING_CONFIRMATION;
-            ota->render(std::move(lock));
-            valid &= checkInk("OTA confirmation");
-            ota->state = OtaUpdateActivity::FINISHED;
-            ota->render(std::move(lock));
-            valid &= checkInk("OTA finished");
-            auto download = std::make_unique<FontDownloadActivity>(renderer, mappedInputManager);
-            download->state_ = FontDownloadActivity::DOWNLOADING;
-            download->activeDownloadFamilyName_ = "Long font family name for download feedback";
-            download->render(std::move(lock));
-            valid &= checkInk("Font download");
             auto qr = std::make_unique<QrDisplayActivity>(renderer, mappedInputManager, std::string(100, 'A'));
             qr->render(std::move(lock));
             valid &= checkInk("QR display");
@@ -2766,23 +2752,6 @@ struct ScreenCalibrationSmokeTest {
     UITheme::getInstance().reload();
     renderer.setOrientation(GfxRenderer::Portrait);
     renderer.setViewableInsets(ScreenInsets{{{32, 32, 32, 32}}});
-    {
-      auto download = makeUniqueNoThrow<FontDownloadActivity>(renderer, mappedInputManager);
-      if (!download) return false;
-      download->manifestFamilies_ = makeUniqueNoThrow<FontDownloadActivity::ManifestFamily[]>(1);
-      if (!download->manifestFamilies_) return false;
-      download->manifestFamilyCount_ = 1;
-      download->manifestFamilies_[0].name = "Installed font";
-      download->manifestFamilies_[0].installed = true;
-      download->state_ = FontDownloadActivity::FAMILY_LIST;
-      applySharedUiTheme(download->app_, download->uiTarget_);
-      download->app_.setScreen(&FontDownloadActivity::listScreen, download.get());
-      valid &= download->rebuildListItems();
-      if (download->listItemCount_ != 1) return false;
-      valid &= !(download->listItems_[0].state & freeink::ui::StateDisabled);
-      download->render(std::move(lock));
-      capture("upstream-installed-font-selection");
-    }
     auto keyboard =
         std::make_unique<KeyboardEntryActivity>(renderer, mappedInputManager, "Password", "", 64, InputType::Password);
     keyboard->onEnter();
