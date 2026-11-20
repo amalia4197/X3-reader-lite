@@ -43,8 +43,8 @@ server sync (`run_{kosync_settings,reading_upload,stats_upload}_smoke_test.py`,
 
 Known leftovers:
 - "Sync Book" stays a valid persisted shortcut ID but `QuickActions::isActionAvailable()` hides it from every picker.
-- The simulator build could not be run on the maintainer's machine (Apple clang 12.5 lacks C++20 `from_chars`); the smoke test was only compile-checked. Run `scripts/run_simulator_smoke_test.py` on a modern toolchain.
-- `lib/KOReaderSync/KOReaderSyncClient.cpp` (network client) is still compiled but unreferenced, except `readerId()`.
+- The simulator smoke test passes on the X3 profile after the v2.0.0 rebase: `scripts/run_simulator_smoke_test.py --env simulator-X3`.
+- `lib/KOReaderSync/KOReaderSyncClient.cpp` (network client) is still compiled but unreferenced, except `readerId()` (used by `UsbProgressSync`).
 - `docs/` still describes the removed sync features.
 
 ## Tier 2: OPDS and Calibre (done)
@@ -67,7 +67,7 @@ Call sites cut (re-check after upstream merges):
 - `test/http_downloader`: OPDS feed-failure assertions and the `OpdsParser` test removed; the generic download tests stay.
 - `src/simulator/PluginSmokeTest.cpp`, `SimulatorSmokeTest.cpp`, `scripts/run_simulator_smoke_test.py` (`--opds-catalog`): OPDS scenarios removed.
 
-## Tier 3: network OTA and font download (done, uncommitted)
+## Tier 3: network OTA and font download (done)
 
 NTP clock sync (`ClockSyncActivity`, Settings > Clock sync now) was kept on request.
 
@@ -94,6 +94,36 @@ Call sites cut (re-check after upstream merges):
 Known leftovers:
 - `FONT_MANIFEST_URL` / `FONTS_MANIFEST_VERSION` macros lived in the deleted `FontDownloadActivity.h`; `lib/EpdFont/SdCardFont.h`, `lib/EpdFont/scripts/cpfont_version.py` and `.github/workflows/release-fonts.yml` still mention them in comments or for upstream's font release pipeline.
 - Fonts now come only from the SD card (web server upload).
+- The Reader > Download Font Size Range setting (`sdFontSizeRange`) was removed from `SettingsList.{h,cpp}` since it only chose which sizes to download. The `CrossPointSettings::sdFontSizeRange` field stays for the persisted layout; `SdCardFontSystem::resolveLegacySizeStep` still reads it as a fallback (always the default, `TINY`).
+
+## Upstream rebase: release/v2.0.0
+
+`lite` was rebased onto `upstream/release/v2.0.0` (0b939f41). After the rebase, a
+clean-ish `pio run -e default` gives flash 6,126,461 B (93.5%), RAM 74,532 B. That
+includes upstream's 65 new commits, so it is not purely lite's savings.
+
+Conflict decisions (re-check on the next upstream merge):
+- `freeink-sdk`: took upstream's pin (9d5bba3e). Lite's older "latest reachable" pin (d2600e95) is its ancestor.
+- Upstream edits to files lite deletes were dropped, not ported: KOReader sync changes, the OPDS hardening (`6943c6aa`), and the clipping-sync and stats-upload tests.
+- `SilentRestart.h`, `SettingsList.h`: kept upstream's new `bool` return types and new settings (EEGO two-tone, Ruled Lines); only the removed rows and `silentRestartToManageFonts()` were cut.
+
+### USB progress sync (stubbed)
+
+Upstream's `UsbProgressSync` (`b3aad1a5`, sync through Inky over USB) relays to the
+removed `ReadingSyncUpload`, `StatsUploadClient` and `ClippingsUpload` clients.
+`src/network/UsbProgressSync.cpp` is now a stub: the interface stays so
+`UsbSerialFileTransfer.cpp` merges cleanly, `handle()` answers `unsupported`,
+`expireBookList()` does nothing, and `readerId()` still calls `KOReaderSyncClient`.
+`UsbSerialFileTransfer.cpp` reports `progress_sync=0` in its STATUS line. Deleted:
+`scripts/test_usb_{progress_framing,progress_sync,sync_relay}.py`. USB file transfer
+itself is unchanged. If upstream changes `UsbProgressSync`'s interface, update the stub.
+
+### Settings capacity
+
+`BASE_SETTINGS_CAPACITY` in `SettingsList.h` is hard-coded and the smoke test checks
+it for exact equality with the real list size. Lite is 10 lower than upstream
+(`opdsDownloadFolder`, 8 KOReader fields and `sdFontSizeRange`): 103 / 102 instead of 113 / 112. Any
+upstream change to that constant needs the same 10 subtracted.
 
 ## Build gotcha: boot loop with a `memcpy` cache error
 
