@@ -615,11 +615,11 @@ inline SettingInfo buildSideButtonActionSetting(const StrId nameId, uint8_t Cros
 //
 // UI consumers own their descriptors; persistence visits and releases each entry.
 // Counts include conditional publisher-font, touch and slide-switch entries.
-// Lite: 9 fewer than upstream (OPDS download folder + 8 KOReader sync fields).
+// Lite: 10 fewer than upstream (OPDS download folder, 8 KOReader sync fields, SD font size range).
 #if CROSSINK_SCALABLE_FONTS
-inline constexpr size_t BASE_SETTINGS_CAPACITY = 104 + (CROSSINK_APP_CAP_TOUCH ? 5 : 0);
-#else
 inline constexpr size_t BASE_SETTINGS_CAPACITY = 103 + (CROSSINK_APP_CAP_TOUCH ? 5 : 0);
+#else
+inline constexpr size_t BASE_SETTINGS_CAPACITY = 102 + (CROSSINK_APP_CAP_TOUCH ? 5 : 0);
 #endif
 
 #if FREEINK_DEVICE_PICCO
@@ -877,7 +877,6 @@ inline std::vector<SettingInfo> buildReaderFontSettingsList(const std::vector<Se
   addSettingByName(settings, allSettings, StrId::STR_FOCUS_READING);
   addSettingByName(settings, allSettings, StrId::STR_GUIDE_READING);
   addSettingByName(settings, allSettings, StrId::STR_RULED_LINES);
-  addSettingByName(settings, allSettings, StrId::STR_SD_FONT_SIZE_RANGE);
   return settings;
 }
 
