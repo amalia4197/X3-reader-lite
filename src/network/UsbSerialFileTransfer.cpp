@@ -342,7 +342,7 @@ void handleStatus() {
   UsbProgressSync::readerId(reader, sizeof(reader));
   char response[224];
   snprintf(response, sizeof(response),
-           "STATUS:protocol=1,progress_sync=1,sync_extras=1,sync_book_scope=1,sync_current=1,sync_reader=%s,device=%s,"
+           "STATUS:protocol=1,progress_sync=0,sync_extras=1,sync_book_scope=1,sync_current=1,sync_reader=%s,device=%s,"
            "firmware=%s,"
            "free=%u,largest=%u\n",
            reader, CROSSINK_FIRMWARE_DEVICE_TYPE, AppVersion::version(), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
