@@ -12,6 +12,8 @@ build
 **/__pycache__/
 /compile_commands.json
 /.cache
+# Simulator stand-in for on-device screen calibration (NVS)
+/.screen-calibration.nvs
 .history/
 /.venv
 *.local*
