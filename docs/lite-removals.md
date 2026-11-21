@@ -104,6 +104,7 @@ includes upstream's 65 new commits, so it is not purely lite's savings.
 
 Conflict decisions (re-check on the next upstream merge):
 - `freeink-sdk`: took upstream's pin (9d5bba3e). Lite's older "latest reachable" pin (d2600e95) is its ancestor.
+- Files upstream added after Tier 2 (OPDS hardening, `6943c6aa`) were removed too: `src/network/OpdsCatalogClient.*`, `lib/OpdsParser/{OpdsAuthChallenge,OpenSearchDescParser}.*`, `test/opds_parser/OpdsDiscoveryTest.cpp`, the five OPDS auth tests in `test/http_downloader/HttpDownloaderTest.cpp` and the matching CMake block. Re-check for new `Opds*` files after each upstream merge: they don't conflict, so they survive silently.
 - Upstream edits to files lite deletes were dropped, not ported: KOReader sync changes, the OPDS hardening (`6943c6aa`), and the clipping-sync and stats-upload tests.
 - `SilentRestart.h`, `SettingsList.h`: kept upstream's new `bool` return types and new settings (EEGO two-tone, Ruled Lines); only the removed rows and `silentRestartToManageFonts()` were cut.
 
@@ -143,3 +144,10 @@ and `.pio/build/<env>`, then rebuild. A good build has `memcpy` in IRAM (`0x4038
 ## Planned
 
 - Later: clippings.
+
+## Native tests
+
+Build and run with PlatformIO's bundled cmake (no system cmake needed):
+`PATH=~/.platformio/packages/tool-cmake/bin:$PATH cmake -S test -B <dir> && cmake --build <dir> -j && ctest --test-dir <dir> -j`.
+After the v2.0.0 rebase 2395 of 2398 pass. These three also fail on pristine `upstream/release/v2.0.0`, so they are not lite regressions:
+`WebDavGetRegression` (SDK `SDCardManager.cpp` does not compile against the host `FsFile` stub), `PiccoSleepRenderLockRegression`, `PluginNetworkBootRegression`.
