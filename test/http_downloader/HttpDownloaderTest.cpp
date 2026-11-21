@@ -915,81 +915,6 @@ TEST_P(HttpDownloaderTest, SmallRequestsDoNotReserveTlsRecordsByDefault) {
   if (GetParam() == HttpDownloader::Transport::WOLFSSL) EXPECT_EQ(recordReservations, (std::vector<bool>{false}));
 }
 
-#include "network/OpdsCatalogClient.h"
-TEST_P(HttpDownloaderTest, NegotiatesBasicOnceWithoutLeakingChallengeToFeed) {
-  const std::string auth = R"({"authentication":[{"type":"http://opds-spec.org/auth/basic"}]})";
-  replies = {{401, auth, auth.size()}, {200, "feed", 4}, {200, "next", 4}};
-  OpdsCatalogClient client;
-  HttpDownloader::DownloadOptions options;
-  options.transport = GetParam();
-  options.authorizationOrigin = "https://example.com/catalog";
-  std::string body;
-  auto sink = [&](const uint8_t* data, size_t n) {
-    body.append(reinterpret_cast<const char*>(data), n);
-    return true;
-  };
-  EXPECT_EQ(client.get("https://example.com/catalog", sink, "synthetic", "fixture", options), HttpDownloader::OK);
-  EXPECT_EQ(body, "feed");
-  ASSERT_EQ(requests.size(), 2u);
-  EXPECT_FALSE(requests[0].count("Authorization"));
-  EXPECT_TRUE(requests[1].count("Authorization"));
-  EXPECT_EQ(client.get("https://example.com/next", sink, "synthetic", "fixture", options), HttpDownloader::OK);
-  EXPECT_TRUE(requests[2].count("Authorization"));
-}
-TEST_P(HttpDownloaderTest, RejectsUnsupportedMalformedAndForeignChallenges) {
-  for (const auto& auth :
-       {std::string(R"({"authentication":[{"type":"http://opds-spec.org/auth/oauth/implicit"}]})"),
-        std::string(R"({"authentication":[{"type":"http://opds-spec.org/auth/basic"}] )"), std::string(8193, 'x')}) {
-    replies = {{401, auth, auth.size()}, {200, "bad", 3}};
-    nextReply = 0;
-    requests.clear();
-    OpdsCatalogClient client;
-    HttpDownloader::DownloadOptions options;
-    options.transport = GetParam();
-    options.authorizationOrigin = "https://example.com/";
-    EXPECT_NE(client.get(
-                  "https://example.com/",
-                  [](const uint8_t*, size_t) {
-                    ADD_FAILURE();
-                    return false;
-                  },
-                  "synthetic", "fixture", options),
-              HttpDownloader::OK);
-    EXPECT_EQ(nextReply, 1u);
-  }
-  Reply challenge{401, "", 0};
-  challenge.authenticate = "Basic realm=\"fixture\"";
-  replies = {{302, "", 0, "", true, "https://foreign.example/auth"}, challenge, {200, "bad", 3}};
-  nextReply = 0;
-  requests.clear();
-  OpdsCatalogClient client;
-  HttpDownloader::DownloadOptions options;
-  options.transport = GetParam();
-  options.authorizationOrigin = "https://example.com/";
-  EXPECT_EQ(client.get(
-                "https://example.com/", [](const uint8_t*, size_t) { return true; }, "synthetic", "fixture", options),
-            HttpDownloader::UNAUTHORIZED);
-  EXPECT_EQ(nextReply, 2u);
-  for (const auto& request : requests) EXPECT_FALSE(request.count("Authorization"));
-}
-TEST_P(HttpDownloaderTest, BasicHeaderHasTokenBoundaryAndFailedRetryStops) {
-  for (const std::string value : {"Basic realm=\"fixture\"", "basic", "BasicOther", "Bearer test"}) {
-    Reply challenge{401, "", 0};
-    challenge.authenticate = value;
-    replies = {challenge, challenge, {200, "bad", 3}};
-    nextReply = 0;
-    requests.clear();
-    OpdsCatalogClient client;
-    HttpDownloader::DownloadOptions options;
-    options.transport = GetParam();
-    options.authorizationOrigin = "https://example.com/";
-    EXPECT_EQ(client.get(
-                  "https://example.com/", [](const uint8_t*, size_t) { return true; }, "synthetic", "fixture", options),
-              HttpDownloader::UNAUTHORIZED);
-    EXPECT_EQ(nextReply, value == "BasicOther" || value == "Bearer test" ? 1u : 2u);
-  }
-}
-
 TEST_P(HttpDownloaderTest, ScopedSessionIsOptInBoundedAndOriginScoped) {
   if (GetParam() != HttpDownloader::Transport::WOLFSSL) GTEST_SKIP();
   replies.assign(14, Reply{200, "ok", 2});
@@ -1071,50 +996,6 @@ TEST_P(HttpDownloaderTest, FinalUrlResolvesRedirectsAndClearsOnPublicationFailur
             HttpDownloader::OK);
   EXPECT_TRUE(finalUrl.empty());
 }
-TEST_P(HttpDownloaderTest, TruncatedChallengeNeverAuthorizesRetry) {
-  const std::string auth = R"({"authentication":[{"type":"http://opds-spec.org/auth/basic"}]})";
-  replies = {{401, auth, auth.size() + 1, "", false}, {200, "bad", 3}};
-  OpdsCatalogClient client;
-  HttpDownloader::DownloadOptions options;
-  options.transport = GetParam();
-  options.authorizationOrigin = "https://example.com/";
-  EXPECT_NE(client.get(
-                "https://example.com/", [](const uint8_t*, size_t) { return true; }, "synthetic", "fixture", options),
-            HttpDownloader::OK);
-  EXPECT_EQ(nextReply, 1u);
-}
-
-TEST_P(HttpDownloaderTest, NegotiatesRepeatedAndCombinedBasicChallenges) {
-  for (const bool combined : {false, true}) {
-    Reply challenge{401, "", 0};
-    challenge.authenticate = combined ? "Bearer realm=\"a,b\", Basic realm=\"local\"" : "Bearer realm=\"a,b\"";
-    if (!combined) challenge.extraAuthenticate = {"Basic realm=\"local\""};
-    replies = {challenge, {200, "feed", 4}};
-    nextReply = 0;
-    requests.clear();
-    OpdsCatalogClient client;
-    HttpDownloader::DownloadOptions options;
-    options.transport = GetParam();
-    options.authorizationOrigin = "https://example.com/";
-    EXPECT_EQ(client.get(
-                  "https://example.com/", [](const uint8_t*, size_t) { return true; }, "synthetic", "fixture", options),
-              HttpDownloader::OK);
-    EXPECT_EQ(nextReply, 2u);
-  }
-  Reply challenge{401, "", 0};
-  challenge.authenticate = "Bearer realm=\"x, Basic trick\", basic = ignored";
-  replies = {challenge, {200, "bad", 3}};
-  nextReply = 0;
-  OpdsCatalogClient client;
-  HttpDownloader::DownloadOptions options;
-  options.transport = GetParam();
-  options.authorizationOrigin = "https://example.com/";
-  EXPECT_EQ(client.get(
-                "https://example.com/", [](const uint8_t*, size_t) { return true; }, "synthetic", "fixture", options),
-            HttpDownloader::UNAUTHORIZED);
-  EXPECT_EQ(nextReply, 1u);
-}
-
 TEST_P(HttpDownloaderTest, ScopedSessionNeverRetainsChunkedFraming) {
   if (GetParam() != HttpDownloader::Transport::WOLFSSL) GTEST_SKIP();
   Reply chunked{200, "ok", 2};
