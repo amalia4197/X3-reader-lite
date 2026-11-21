@@ -369,6 +369,12 @@ void ScreenCalibrationActivity::render(RenderLock&&) {
       mappedInput.mapLabels(mappedInput.withBackArrow(editing ? tr(STR_BACK) : tr(STR_CANCEL)),
                             editing ? tr(STR_CONFIRM) : (selected < CONTROL_COUNT ? tr(STR_EDIT) : tr(STR_SELECT)),
                             editing ? "-" : tr(STR_DIR_UP), editing ? "+" : tr(STR_DIR_DOWN));
-  if (!cornerPreview) GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  if (!cornerPreview) {
+    // Hints read the bottom inset from the renderer, so draw them with the draft to preview it live.
+    const auto saved = renderer.getViewableInsets();
+    renderer.setViewableInsets(draft);
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    renderer.setViewableInsets(saved);
+  }
   renderer.displayBuffer();
 }

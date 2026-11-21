@@ -393,6 +393,15 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   constexpr int wideButtonPositions[] = {65, 157, 291, 383};
   const int* buttonPositions = renderer.getScreenWidth() >= 528 ? wideButtonPositions : narrowButtonPositions;
   const char* labels[] = {btn1, btn2, btn3, btn4};
+  const int bezelSafeBottom = pageHeight - UITheme::getButtonHintsBottomInset(renderer);
+
+  // drawRoundedRect leaves the bottom corners open and stops the side lines cornerRadius short of the
+  // box bottom. Extend them down to the bezel-safe edge so the hints appear to sit on it.
+  const auto drawSideExtensions = [&](const int x, const int boxY) {
+    const int top = boxY + cornerRadius;
+    renderer.fillRect(x, top, 1, bezelSafeBottom - top, true);
+    renderer.fillRect(x + buttonWidth - 1, top, 1, bezelSafeBottom - top, true);
+  };
 
   for (int i = 0; i < 4; i++) {
     const int x = UITheme::getHintSafeX(renderer, buttonPositions[i], buttonWidth);
@@ -403,12 +412,14 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
       renderer.fillRoundedRect(x, pageHeight - buttonY, buttonWidth, buttonHeight, cornerRadius, Color::White);
       renderer.drawRoundedRect(x, pageHeight - buttonY, buttonWidth, buttonHeight, 1, cornerRadius, true, true, false,
                                false, true);
+      drawSideExtensions(x, pageHeight - buttonY);
     } else if (labels[i] != nullptr) {
       // The caller restores the background when hints change; only cover the small marker.
-      const int smallButtonY = pageHeight - smallButtonHeight - UITheme::getButtonHintsBottomInset(renderer);
+      const int smallButtonY = bezelSafeBottom - smallButtonHeight;
       renderer.fillRoundedRect(x, smallButtonY, buttonWidth, smallButtonHeight, cornerRadius, Color::White);
       renderer.drawRoundedRect(x, smallButtonY, buttonWidth, smallButtonHeight, 1, cornerRadius, true, true, false,
                                false, true);
+      drawSideExtensions(x, smallButtonY);
     }
   }
 
