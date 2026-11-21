@@ -1,3 +1,9 @@
+## [Lite]
+
+### Changed
+
+- Button hint outlines in the Lyra, Lyra Extended, Lyra Carousel, Minimal, and Dashboard themes now extend down to the screen's calibrated bottom edge instead of stopping a few pixels short. The hints also preview the bottom offset live in Screen Calibration. Minimal and Dashboard button hint labels are now vertically centered, matching Lyra.
+
 ## [Unreleased]
 
 ### Added
