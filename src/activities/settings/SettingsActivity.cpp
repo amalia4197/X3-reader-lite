@@ -1584,7 +1584,7 @@ void SettingsActivity::toggleCurrentSetting() {
         requestUpdate();
         return;
       }
-      case SettingAction::OPDSBrowser:  // OPDS was removed from this fork.
+      case SettingAction::OPDSBrowser:      // OPDS was removed from this fork.
       case SettingAction::CheckForUpdates:  // Network OTA was removed from this fork.
       case SettingAction::DownloadFonts:    // Font download was removed from this fork.
         break;

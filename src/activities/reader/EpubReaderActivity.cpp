@@ -2733,10 +2733,6 @@ void EpubReaderActivity::onExit() {
   if (!progressSaved) {
     LOG_ERR("ERS", "Failed to flush debounced reader progress on exit");
   }
-  if (sleepSyncBook && epub) {
-    sleepSyncBook->path = epub->getPath();
-    sleepSyncBook->progressSafe = progressSaved;
-  }
   pluginEvents.exit(getCurrentBookPath(), getScreenshotInfo().progressPercent);
 
   // Reset orientation back to portrait for the rest of the UI
@@ -2768,15 +2764,6 @@ void EpubReaderActivity::onExit() {
     const std::string dstPath = BookMoveUtils::buildReadFolderDestination(srcPath);
     epub.reset();  // release the Epub (and any open handles) before renaming on the SD card
     const auto moved = moveFinishedBookToReadFolder(srcPath, dstPath, oldCachePath, title, author);
-    if (sleepSyncBook) {
-      if (moved == FinishedBookMove::Moved) {
-        sleepSyncBook->path = dstPath;
-      } else if (moved == FinishedBookMove::StateMigrationFailed) {
-        // The book moved but its synced state may still belong to the old
-        // path. Do not send an incomplete snapshot from either path.
-        *sleepSyncBook = {};
-      }
-    }
   } else {
     epub.reset();
   }

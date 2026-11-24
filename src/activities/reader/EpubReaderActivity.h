@@ -51,10 +51,7 @@ struct ToastRect {
   int h = 0;
 };
 
-struct SleepSyncBook;
-
 class EpubReaderActivity final : public Activity {
-  SleepSyncBook* sleepSyncBook = nullptr;
   PluginReaderEvents pluginEvents;
 #ifdef SIMULATOR
   friend struct BookmarkListSmokeTest;
@@ -638,7 +635,6 @@ class EpubReaderActivity final : public Activity {
   bool isEpubReaderActivity() const override { return true; }
   bool checkpointForUsbSync() { return saveProgressBeforeRestart(); }
   // ActivityManager holds RenderLock and immediately exits this activity.
-  void captureSyncBookOnExit(SleepSyncBook& destination) { sleepSyncBook = &destination; }
   void onInputLockChanged(bool locked) override;
   void onUserInput() override;
   bool handleQuickLockUnlock(QuickLockTrigger trigger) override;

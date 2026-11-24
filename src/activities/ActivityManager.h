@@ -24,11 +24,6 @@ struct portMUX_TYPE {};
   }
 #endif
 
-struct SleepSyncBook {
-  std::string path;
-  bool progressSafe = false;
-  bool pluginJoinAttempted = false;
-};
 
 class Activity;    // forward declaration
 class RenderLock;  // forward declaration
@@ -88,7 +83,7 @@ class ActivityManager {
   void exitActivity(const RenderLock& lock);
   // Apply navigation and render requests without polling the outgoing activity.
   void processPendingActivities();
-  bool prepareSleepPlugins(bool quickResume, bool fromReaderOrHome, bool& attemptedJoin);
+  bool prepareSleepPlugins(bool quickResume, bool fromReaderOrHome);
 
   unsigned long idleWorkMs = 0;  // Main task only, reset at the start of each dispatch.
 
@@ -187,7 +182,7 @@ class ActivityManager {
                   bool cleanImageBaseOnEntry = false, bool keepWakeFrame = false);
   void goToReaderAndRunMenuAction(std::string path, uint8_t action);
   // Returns true only when sleep rendered a known complete B/W frame.
-  bool goToSleep(bool fromTimeout = false, SleepSyncBook* syncBook = nullptr);
+  bool goToSleep(bool fromTimeout = false);
   void goToBoot();
   void goToFullScreenMessage(std::string message, EpdFontFamily::Style style = EpdFontFamily::REGULAR);
   void goToCrashReport();
